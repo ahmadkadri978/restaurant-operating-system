@@ -1,6 +1,7 @@
 package com.restaurantqr.order.staff;
 
 
+import com.restaurantqr.exception.BusinessRuleException;
 import com.restaurantqr.exception.ResourceNotFoundException;
 import com.restaurantqr.order.CustomerOrder;
 import com.restaurantqr.order.CustomerOrderRepository;
@@ -27,24 +28,6 @@ public class StaffOrderService {
         this.orderItemRepository = orderItemRepository;
     }
 
-    @Transactional(readOnly = true)
-    public Page<OrderSummaryDto> getRecentOrders(Long restaurantId, Pageable pageable, Instant since) {
-        log.info("Get recent orders. restaurantId={}, page={}, size={}, since={}",
-                restaurantId, pageable.getPageNumber(), pageable.getPageSize(),since);
-
-        // Polling mode
-        Page<CustomerOrder> pageResult = (since == null)
-                ? orderRepository.findByRestaurantIdOrderByCreatedAtDesc(restaurantId, pageable)
-                : orderRepository.findNewOrdersSince(restaurantId, since, pageable);
-
-        return pageResult.map(o -> new OrderSummaryDto(
-                o.getId(),
-                o.getTable().getTableNumber(),
-                o.getCreatedAt(),
-                o.getTotalAmount(),
-                o.getStatus()
-        ));
-    }
 
     @Transactional(readOnly = true)
     public OrderDetailsDto getOrderDetails(Long restaurantId, Long orderId) {
@@ -98,7 +81,7 @@ public class StaffOrderService {
 
         if (order.getStatus() == OrderStatus.SENT_TO_KITCHEN) {
             log.info("Order already SENT_TO_KITCHEN. orderId={}", orderId);
-            return new OrderStatusResponse(order.getId(), order.getStatus(), order.getSentToKitchenAt());
+            return new OrderStatusResponse(order.getId(), order.getStatus(), order.getSentToKitchenAt(),null);
         }
 
         order.setStatus(OrderStatus.SENT_TO_KITCHEN);
@@ -108,8 +91,81 @@ public class StaffOrderService {
         orderRepository.save(order);
 
         log.info("Order marked as SENT_TO_KITCHEN. orderId={}", orderId);
-        return new OrderStatusResponse(order.getId(), order.getStatus(), order.getSentToKitchenAt());
+        return new OrderStatusResponse(order.getId(), order.getStatus(), order.getSentToKitchenAt(),null);
     }
+    @Transactional
+    public OrderStatusResponse markDone(Long restaurantId, Long orderId) {
+
+        log.info("Mark order DONE. restaurantId={}, orderId={}", restaurantId, orderId);
+
+        CustomerOrder order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
+
+        // Restaurant boundary
+        if (!order.getRestaurant().getId().equals(restaurantId)) {
+            throw new ResourceNotFoundException("Order not found: " + orderId);
+        }
+
+        // Idempotent
+        if (order.getStatus() == OrderStatus.DONE) {
+            return new OrderStatusResponse(
+                    order.getId(),
+                    order.getStatus(),
+                    order.getSentToKitchenAt(),
+                    order.getDoneAt()
+            );
+        }
+
+        // Business rule (recommended)
+        // We usually allow DONE only if it was sent to kitchen first.
+        if (order.getStatus() != OrderStatus.SENT_TO_KITCHEN) {
+            throw new BusinessRuleException("Order must be SENT_TO_KITCHEN before marking DONE");
+        }
+
+        order.setStatus(OrderStatus.DONE);
+        order.setDoneAt(Instant.now());
+
+        orderRepository.save(order);
+
+        return new OrderStatusResponse(
+                order.getId(),
+                order.getStatus(),
+                order.getSentToKitchenAt(),
+                order.getDoneAt()
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public Page<OrderSummaryDto> getOrdersByStatus(Long restaurantId,
+                                                   OrderStatus status,
+                                                   Pageable pageable,
+                                                   Instant since) {
+
+        log.info("Get orders by status. restaurantId={}, status={}, page={}, size={}, since={}",
+                restaurantId, status, pageable.getPageNumber(), pageable.getPageSize(), since);
+
+        Page<CustomerOrder> pageResult;
+
+        if (since == null) {
+            pageResult = orderRepository.findByRestaurantIdAndStatusOrderByCreatedAtDesc(
+                    restaurantId, status, pageable
+            );
+        } else {
+            // option 1: Page
+            pageResult = orderRepository.findByRestaurantIdAndStatusAndCreatedAtAfterOrderByCreatedAtDesc(
+                    restaurantId, status, since, pageable
+            );
+        }
+
+        return pageResult.map(o -> new OrderSummaryDto(
+                o.getId(),
+                o.getTable().getTableNumber(),
+                o.getCreatedAt(),
+                o.getTotalAmount(),
+                o.getStatus()
+        ));
+    }
+
 
 }
 

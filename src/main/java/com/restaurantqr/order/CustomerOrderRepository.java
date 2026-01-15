@@ -1,5 +1,6 @@
 package com.restaurantqr.order;
 
+import com.restaurantqr.order.staff.OrderStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -35,5 +36,27 @@ public interface CustomerOrderRepository extends JpaRepository<CustomerOrder, Lo
           and o.createdAt > :since
     """)
     Page<CustomerOrder> findNewOrdersSince(Long restaurantId, Instant since, Pageable pageable);
+
+    // ✅ Initial load with paging by status
+    Page<CustomerOrder> findByRestaurantIdAndStatusOrderByCreatedAtDesc(
+            Long restaurantId,
+            OrderStatus status,
+            Pageable pageable
+    );
+
+    // ✅ Polling by status (since) - if you want Page
+    Page<CustomerOrder> findByRestaurantIdAndStatusAndCreatedAtAfterOrderByCreatedAtDesc(
+            Long restaurantId,
+            OrderStatus status,
+            Instant since,
+            Pageable pageable
+    );
+
+    // ✅ Polling by status (since) - if you prefer List (often better for polling)
+    List<CustomerOrder> findByRestaurantIdAndStatusAndCreatedAtAfterOrderByCreatedAtAsc(
+            Long restaurantId,
+            OrderStatus status,
+            Instant since
+    );
 }
 

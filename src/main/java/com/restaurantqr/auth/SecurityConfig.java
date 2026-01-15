@@ -42,6 +42,7 @@ public class SecurityConfig {
                                 "/**/*.css", "/**/*.js",
                                 "/**/*.png", "/**/*.jpg", "/**/*.jpeg", "/**/*.svg", "/**/*.webp", "/**/*.ico"
                         ).permitAll()
+
                         .requestMatchers("/api/v1/public/**").permitAll()
                         .requestMatchers("/api/v1/manager/**").hasAuthority("ROLE_MANAGER")
                         .requestMatchers("/api/v1/staff/**").hasAnyAuthority("ROLE_STAFF", "ROLE_MANAGER")

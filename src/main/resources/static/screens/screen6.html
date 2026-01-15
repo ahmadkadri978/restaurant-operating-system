@@ -4,7 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="dark" />
-    <title>Staff Dashboard</title>
+    <title>لوحة الموظفين - الطلبات الجديدة</title>
+    <link rel="icon" href="data:,">
 
     <style>
         :root{
@@ -12,9 +13,8 @@
           --text:#e5e7eb;
           --muted:#94a3b8;
           --border: rgba(255,255,255,.09);
-          --card: rgba(17,24,38,.82);
+          --card: rgba(17,24,38,.86);
           --shadow: 0 14px 34px rgba(0,0,0,.45);
-          --radius: 18px;
 
           --green: rgba(34,197,94,.20);
           --greenB: rgba(34,197,94,.45);
@@ -25,8 +25,13 @@
           --danger: rgba(248,113,113,.16);
           --dangerB: rgba(248,113,113,.30);
 
+          --amber: rgba(251,191,36,.16);
+          --amberB: rgba(251,191,36,.30);
+
           --focus: 0 0 0 3px rgba(34,197,94,.28);
           --tap: rgba(255,255,255,.07);
+
+          --r: 18px;
         }
 
         *{box-sizing:border-box}
@@ -41,84 +46,12 @@
           color:var(--text);
           -webkit-tap-highlight-color: transparent;
         }
-        /* ===== Mobile header fix ===== */
-header{
-  padding: calc(10px + env(safe-area-inset-top)) 12px 10px;
-}
-
-.headRow{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:10px;
-}
-
-.leftHead{
-  min-width:0;
-  display:flex;
-  align-items:center;
-  gap:10px;
-}
-
-.titles{
-  min-width:0;
-}
-h1{
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-
-.headerActions{
-  display:flex;
-  gap:8px;
-  align-items:center;
-  flex-wrap:wrap;            /* ✅ يسمح باللف */
-  justify-content:flex-end;
-  max-width: 52%;
-}
-
-/* badges don't overflow */
-.badge{
-  max-width: 140px;
-  overflow:hidden;
-  text-overflow: ellipsis;
-}
-
-/* Small phones */
-@media (max-width: 420px){
-  .headRow{
-    flex-direction: column;   /* ✅ سطرين */
-    align-items: stretch;
-  }
-
-  .headerActions{
-    max-width: 100%;
-    justify-content: flex-start;
-    flex-wrap: nowrap;        /* ✅ ما يصير تكسير غريب */
-    overflow-x: auto;         /* ✅ سحب أفقي */
-    padding-bottom: 4px;
-    scrollbar-width: none;
-  }
-  .headerActions::-webkit-scrollbar{ display:none; }
-
-  /* keep buttons compact */
-  .btn{
-    padding: 10px 10px;
-    border-radius: 14px;
-  }
-
-  /* optional: icon-only buttons */
-  .btn .txt{ display:none; }  /* اذا استخدمت span.txt للنص */
-  .badge{ max-width: 110px; }
-}
-
 
         header{
+          padding: calc(10px + env(safe-area-inset-top)) 12px 10px;
           position: sticky;
           top:0;
           z-index: 10;
-          padding:14px;
           display:flex;
           justify-content:space-between;
           align-items:center;
@@ -128,8 +61,44 @@ h1{
           border-bottom:1px solid var(--border)
         }
 
-        .leftHead{display:flex; align-items:center; gap:10px; min-width:0;}
-        h1{margin:0;font-size:18px;font-weight:1000; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+        .headRow{
+          display:flex;
+          align-items:flex-start;
+          justify-content:space-between;
+          gap:10px;
+          width:100%;
+        }
+
+        .leftHead{
+          min-width:0;
+          display:flex;
+          flex-direction:column;
+          gap:8px;
+          flex:1;
+        }
+
+        .topLine{
+          display:flex;
+          align-items:center;
+          gap:10px;
+          min-width:0;
+        }
+
+        h1{
+          margin:0;
+          font-size:18px;
+          font-weight:1000;
+          white-space:nowrap;
+          overflow:hidden;
+          text-overflow:ellipsis;
+        }
+
+        .subLine{
+          display:flex;
+          gap:8px;
+          flex-wrap:wrap;
+          align-items:center;
+        }
 
         .badge{
           padding:6px 10px;border-radius:999px;
@@ -137,12 +106,25 @@ h1{
           background:rgba(255,255,255,.05);
           color:#cbd5e1;font-weight:1000;font-size:12.5px;
           white-space:nowrap;
+          max-width: 160px;
+          overflow:hidden;
+          text-overflow: ellipsis;
         }
         .badge.ok{ border-color: var(--greenB); background: var(--green); color:#dcfce7; }
         .badge.err{ border-color: var(--dangerB); background: var(--danger); color:#fecaca; }
         .badge.info{ border-color: var(--blueB); background: var(--blue); color:#dbeafe; }
+        .badge.count{ border-color: var(--greenB); background: rgba(34,197,94,.10); color:#dcfce7; }
 
-        .headerActions{display:flex; align-items:center; gap:10px; flex:0 0 auto;}
+        .headerActions{
+          display:flex;
+          gap:8px;
+          align-items:center;
+          flex-wrap:wrap;
+          justify-content:flex-end;
+          flex:0 0 auto;
+          max-width: 52%;
+        }
+
         .btn{
           padding:8px 12px;
           border-radius:12px;
@@ -153,13 +135,37 @@ h1{
           cursor:pointer;
           user-select:none;
           transition: transform .08s ease, background .18s ease, opacity .18s ease;
+          white-space:nowrap;
+          display:inline-flex;
+          align-items:center;
+          gap:8px;
         }
         .btn:active{ transform: translateY(1px); background: var(--tap); }
         .btn:focus-visible{ outline:none; box-shadow: var(--focus); }
         .btn.primary{ background:var(--green); border-color:var(--greenB); color:#dcfce7; }
         .btn.ghost{ background:rgba(255,255,255,.03); }
         .btn:disabled{ opacity:.55; cursor:not-allowed; pointer-events:none; }
+        .btn.big{
+          padding:10px 14px;
+          border-radius:14px;
+          font-size:14px;
+        }
 
+        @media (max-width: 420px){
+          .headRow{ flex-direction: column; align-items: stretch; }
+          .headerActions{
+            max-width: 100%;
+            justify-content: flex-start;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            padding-bottom: 4px;
+            scrollbar-width: none;
+          }
+          .headerActions::-webkit-scrollbar{ display:none; }
+          .btn .txt{ display:none; }
+        }
+
+        /* Tabs */
         .tabs{
           display:flex;
           gap:10px;
@@ -167,26 +173,29 @@ h1{
           justify-content:flex-start;
         }
         .tab{
-          padding:8px 14px;
+          padding:9px 14px;
           border-radius:14px;
           cursor:pointer;
           background:rgba(255,255,255,.05);
           border:1px solid rgba(255,255,255,.10);
           font-weight:1000;
+          white-space:nowrap;
         }
         .tab.active{ background:var(--green); border-color: var(--greenB); color:#dcfce7; }
-        .tab:active{ background: var(--tap); transform: translateY(1px); }
-        .tab:focus-visible{ outline:none; box-shadow: var(--focus); }
 
-        .bar, .toolbar{
-  overflow-x:auto;
-  flex-wrap: nowrap;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width:none;
-}
-.bar::-webkit-scrollbar, .toolbar::-webkit-scrollbar{ display:none; }
-
+        /* Toolbars */
+        .bar{
+          overflow-x:auto;
+          flex-wrap: nowrap;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width:none;
+          display:flex;
+          gap:10px;
+          padding:10px;
+          align-items:center;
         }
+        .bar::-webkit-scrollbar{ display:none; }
+
         .chip{
           padding:8px 12px;
           border-radius:999px;
@@ -199,35 +208,90 @@ h1{
           white-space:nowrap;
           transition: transform .08s ease, background .18s ease;
         }
-        .chip:active{ transform: translateY(1px); background: var(--tap); }
-        .chip:focus-visible{ outline:none; box-shadow: var(--focus); }
-        .chip.active{
-          border-color: var(--greenB);
-          background: var(--green);
-          color:#dcfce7;
-        }
+        .chip.active{ border-color: var(--greenB); background: var(--green); color:#dcfce7; }
 
+        /* hide NEW-only chip (screen is NEW only) */
+        #chipNewOnly{ display:none; }
+
+        /* List */
         .list{padding:10px;display:flex;flex-direction:column;gap:10px}
+
+        /* Friendly card layout */
         .card{
-          padding:12px;border-radius:18px;
+          padding:12px;
+          border-radius: var(--r);
           background:var(--card);
           border:1px solid var(--border);
-          display:flex;justify-content:space-between;align-items:center;gap:12px;
           box-shadow: 0 10px 24px rgba(0,0,0,.22);
+          display:flex;
+          flex-direction:column;
+          gap:10px;
         }
-        .meta{min-width:0}
-        .meta .t{font-weight:1000; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-        .meta .s{font-size:13px;color:var(--muted);font-weight:900;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-        .right{display:flex;align-items:center;gap:10px;white-space:nowrap}
-        .status{
-          padding:6px 10px;border-radius:999px;
+        .cardTop{
+          display:flex;
+          justify-content:space-between;
+          gap:10px;
+          align-items:center;
+        }
+
+        .tablePill{
+          display:inline-flex;
+          align-items:center;
+          gap:8px;
+          padding:8px 12px;
+          border-radius:999px;
           border:1px solid rgba(255,255,255,.12);
           background:rgba(255,255,255,.05);
-          color:#cbd5e1;font-weight:1000;font-size:12.5px;
+          font-weight:1000;
         }
-        .status.new{ border-color:var(--greenB); background:var(--green); color:#dcfce7; }
-        .status.sent{ opacity:.85; }
+        .tablePill b{ font-size:15px; }
+
+        .timePill{
+          padding:6px 10px;
+          border-radius:999px;
+          border:1px solid rgba(255,255,255,.12);
+          background:rgba(255,255,255,.04);
+          color:#cbd5e1;
+          font-weight:1000;
+          font-size:12.5px;
+          white-space:nowrap;
+        }
+
+        .late{
+          border-color: var(--amberB)!important;
+          background: var(--amber)!important;
+          color:#fde68a!important;
+        }
+
+        .total{
+          font-weight:1000;
+          color:#dcfce7;
+          white-space:nowrap;
+        }
+
+        .cardBottom{
+          display:flex;
+          justify-content:space-between;
+          gap:10px;
+          align-items:center;
+          flex-wrap:wrap;
+        }
+
+        .status{
+          padding:6px 10px;border-radius:999px;
+          border:1px solid var(--greenB);
+          background:var(--green);
+          color:#dcfce7;
+          font-weight:1000;font-size:12.5px;
+        }
+
+        .actions{
+          display:flex;
+          gap:10px;
+          flex-wrap:wrap;
+          margin-right:auto;
+        }
 
         .empty{
           padding:20px;
@@ -331,50 +395,55 @@ h1{
           vertical-align:middle;
         }
         @keyframes rot{to{transform:rotate(360deg)}}
-
-        @media (prefers-reduced-motion: reduce){
-          *{ transition:none !important; animation:none !important; }
-        }
     </style>
 </head>
 
 <body>
 
 <header>
-    <div class="leftHead">
-        <h1>📋 لوحة الموظف</h1>
-        <div id="rest" class="badge">—</div>
-        <div id="netStatus" class="badge info">Connecting…</div>
-    </div>
+    <div class="headRow">
+        <div class="leftHead">
+            <div class="topLine">
+                <h1>📋 لوحة الموظفين</h1>
+            </div>
+            <div class="subLine">
+                <div id="rest" class="badge">—</div>
+                <div id="netStatus" class="badge info">Connecting…</div>
+                <div id="newCount" class="badge count">طلبات جديدة: 0</div>
+            </div>
+        </div>
 
-    <div class="headerActions">
-        <button class="btn" id="toggleAlertsBtn" type="button">
-            <span class="ico">🔔</span><span class="txt">تنبيهات</span>
-        </button>
+        <div class="headerActions">
+            <button class="btn ghost" id="goKitchenBtn" type="button">
+                <span class="ico">🍳</span><span class="txt">لوحة المطبخ</span>
+            </button>
 
-        <button class="btn ghost" id="enableSoundBtn" type="button">
-            <span class="ico">🔊</span><span class="txt">تفعيل الصوت</span>
-        </button>
+            <button class="btn" id="toggleAlertsBtn" type="button">
+                <span class="ico">🔔</span><span class="txt">تنبيهات</span>
+            </button>
 
-        <button class="btn" id="logoutBtn" type="button">
-            <span class="ico">⎋</span><span class="txt">خروج</span>
-        </button>
+            <button class="btn ghost" id="enableSoundBtn" type="button">
+                <span class="ico">🔊</span><span class="txt">تفعيل الصوت</span>
+            </button>
+
+            <button class="btn" id="logoutBtn" type="button">
+                <span class="ico">⎋</span><span class="txt">خروج</span>
+            </button>
+        </div>
     </div>
 </header>
 
 <div class="tabs" role="tablist" aria-label="التبويبات">
-    <button class="tab active" type="button" data-tab="orders" role="tab" aria-selected="true">الطلبات</button>
+    <button class="tab active" type="button" data-tab="orders" role="tab" aria-selected="true">الطلبات الجديدة</button>
     <button class="tab" type="button" data-tab="calls" role="tab" aria-selected="false">النداءات</button>
 </div>
 
-<!-- Orders toolbar -->
 <div class="bar" id="ordersBar">
-    <button class="chip" id="chipNewOnly" type="button" aria-pressed="false">NEW فقط</button>
+    <button class="chip" id="chipNewOnly" type="button" aria-pressed="true">NEW فقط</button>
     <button class="chip active" id="chipSortTime" type="button">ترتيب: الوقت</button>
     <button class="chip" id="chipSortTable" type="button">ترتيب: الطاولة</button>
 </div>
 
-<!-- Calls toolbar -->
 <div class="bar" id="callsBar" style="display:none">
     <span class="badge info">النداءات النشطة (3 دقائق)</span>
 </div>
@@ -384,10 +453,6 @@ h1{
 <div id="empty" class="empty">لا يوجد بيانات</div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-
-<audio id="alertSound" preload="auto">
-    <source src="https://assets.mixkit.co/sfx/preview/mixkit-bell-notification-933.mp3">
-</audio>
 
 <!-- Modal -->
 <div class="modal-backdrop" id="modalBackdrop" aria-hidden="true">
@@ -408,7 +473,7 @@ h1{
 
 <script>
     // ===== Config =====
-    const API = "http://localhost:8081/api/v1/staff";
+    const API = "https://5cebccdacecb.ngrok-free.app/api/v1/staff";
     const AUTH_KEY = "rq_auth_v1";
 
     const ORDERS_POLL_MS = 2500;
@@ -424,12 +489,10 @@ h1{
     const callsEl  = document.getElementById("calls");
     const emptyEl  = document.getElementById("empty");
     const toastEl  = document.getElementById("toast");
-    const sound    = document.getElementById("alertSound");
 
     const ordersBar = document.getElementById("ordersBar");
     const callsBar  = document.getElementById("callsBar");
 
-    const chipNewOnly   = document.getElementById("chipNewOnly");
     const chipSortTime  = document.getElementById("chipSortTime");
     const chipSortTable = document.getElementById("chipSortTable");
 
@@ -442,18 +505,22 @@ h1{
 
     const restBadge = document.getElementById("rest");
     const netStatus = document.getElementById("netStatus");
+    const newCountBadge = document.getElementById("newCount");
+
     const enableSoundBtn = document.getElementById("enableSoundBtn");
     const toggleAlertsBtn = document.getElementById("toggleAlertsBtn");
     const logoutBtn = document.getElementById("logoutBtn");
+    const goKitchenBtn = document.getElementById("goKitchenBtn");
 
     restBadge.textContent = `Restaurant #${auth.restaurantId}`;
+    goKitchenBtn.addEventListener("click", ()=> location.href="screen7.html");
 
     // ===== UI State =====
     let activeTab = "orders";
 
     // Orders state
     let orderSince = null;
-    const ordersMap = new Map();     // orderId -> summary
+    const ordersMap = new Map();
     const seenOrderIds = new Set();
     let firstOrdersLoad = true;
 
@@ -464,15 +531,14 @@ h1{
     let firstCallsLoad = true;
 
     // Filters
-    let filterNewOnly = false;
     let sortMode = "TIME"; // TIME | TABLE
+    const filterNewOnly = true; // ✅ دائماً NEW فقط
 
     // Modal state
     let openOrderId = null;
 
     // Alerts
     let alertsEnabled = true;
-    let soundUnlocked = false;
     let audioCtx = null;
     let audioUnlocked = false;
 
@@ -487,21 +553,30 @@ h1{
       toastEl._t = setTimeout(()=>toastEl.style.display="none", 1600);
     }
 
-    async function unlockSound(){
-      try{
-        sound.volume = 0.9;
-        // Some browsers need a play() call triggered by user gesture
-        await sound.play();
-        sound.pause();
-        sound.currentTime = 0;
-        soundUnlocked = true;
-        showToast("✅ تم تفعيل الصوت");
-      }catch{
-        showToast("⚠️ المتصفح منع الصوت. حاول مرة ثانية");
-      }
+    function setEmpty(isEmpty, msg){
+      emptyEl.style.display = isEmpty ? "block" : "none";
+      if(isEmpty) emptyEl.textContent = msg || "لا يوجد بيانات";
     }
 
-    enableSoundBtn.addEventListener("click", unlockSound);
+    function setNetStatus(type, text){
+      netStatus.classList.remove("ok","err","info");
+      if(type) netStatus.classList.add(type);
+      netStatus.textContent = text;
+    }
+
+    // ===== Audio =====
+    async function unlockAudio(){
+      try{
+        audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+        await audioCtx.resume();
+        audioUnlocked = true;
+        showToast("✅ تم تفعيل صوت الإشعارات");
+      }catch(e){
+        console.error(e);
+        showToast("⚠️ المتصفح منع الصوت. جرّب مرة ثانية");
+      }
+    }
+    enableSoundBtn.addEventListener("click", unlockAudio);
 
     toggleAlertsBtn.addEventListener("click", ()=>{
       alertsEnabled = !alertsEnabled;
@@ -513,92 +588,64 @@ h1{
       localStorage.removeItem(AUTH_KEY);
       location.href="screen5.html";
     });
-    async function unlockAudio(){
-  try{
-    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-    await audioCtx.resume();
-    audioUnlocked = true;
-    showToast("✅ تم تفعيل صوت الإشعارات");
-  }catch(e){
-    console.error(e);
-    showToast("⚠️ المتصفح منع الصوت. جرّب مرة ثانية");
-  }
-}
 
-document.getElementById("enableSoundBtn").addEventListener("click", unlockAudio);
+    function playRingtone(){
+      if(!alertsEnabled || !audioUnlocked) return;
+      const ctx = audioCtx;
+      const now = ctx.currentTime;
 
-// رنّة واضحة (نمط ringtone) لمدة 2.2 ثانية
-function playRingtone(){
-  if(!alertsEnabled || !audioUnlocked) return;
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.35, now + 0.02);
+      gain.connect(ctx.destination);
 
-  const ctx = audioCtx;
-  const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      osc.type = "sine";
 
-  // master gain
-  const gain = ctx.createGain();
-  gain.gain.setValueAtTime(0.0001, now);
-  gain.gain.exponentialRampToValueAtTime(0.35, now + 0.02);  // 🔊 أعلى
-  gain.connect(ctx.destination);
+      const pattern = [
+        {f: 880,  d: 0.18},
+        {f: 988,  d: 0.18},
+        {f: 1046, d: 0.18},
+        {f: 988,  d: 0.18},
+        {f: 880,  d: 0.22},
+        {f: 0,    d: 0.22},
+      ];
 
-  // oscillator
-  const osc = ctx.createOscillator();
-  osc.type = "sine";
-
-  // “رنّة” بتبديل ترددات (قريبة من رنة هاتف)
-  const pattern = [
-    {f: 880,  d: 0.20},  // A5
-    {f: 988,  d: 0.20},  // B5
-    {f: 1046, d: 0.20},  // C6
-    {f: 988,  d: 0.20},  // B5
-    {f: 880,  d: 0.25},  // A5
-    {f: 0,    d: 0.25},  // pause
-  ];
-
-  let t = now;
-  // كرر النمط 3 مرات
-  for(let r=0; r<3; r++){
-    for(const p of pattern){
-      if(p.f === 0){
-        // pause (خفض الصوت)
-        gain.gain.setValueAtTime(0.0001, t);
-        t += p.d;
-        continue;
+      let t = now;
+      for(let r=0; r<2; r++){
+        for(const p of pattern){
+          if(p.f === 0){
+            gain.gain.setValueAtTime(0.0001, t);
+            t += p.d;
+            continue;
+          }
+          osc.frequency.setValueAtTime(p.f, t);
+          gain.gain.setValueAtTime(0.30, t);
+          t += p.d;
+        }
       }
-      osc.frequency.setValueAtTime(p.f, t);
-      gain.gain.setValueAtTime(0.30, t);
-      t += p.d;
-    }
-  }
 
-  osc.connect(gain);
-  osc.start(now);
-  osc.stop(t + 0.02);
-}
+      osc.connect(gain);
+      osc.start(now);
+      osc.stop(t + 0.02);
+    }
 
     function playAlert(){
-  // اهتزاز قوي + رنّة
-  if(navigator.vibrate) navigator.vibrate([200,100,200,100,300]);
-  playRingtone();
-}
-
-    function callLabel(t){
-      if(t==="WAITER") return "استدعاء نادل";
-      if(t==="NARA")   return "نارا (شيشا)";
-      if(t==="BILL")   return "الحساب";
-      return t;
+      if(navigator.vibrate) navigator.vibrate([200,100,200]);
+      playRingtone();
     }
 
-    function orderStatusLabel(s){
-      if(s==="NEW") return "NEW";
-      if(s==="SENT_TO_KITCHEN") return "SENT_TO_KITCHEN";
-      return s;
-    }
-
+    // ===== Helpers =====
     function formatTime(iso){
       try{
         const d = new Date(iso);
-        return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+        return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
       }catch{return "—";}
+    }
+
+    function minutesSince(iso){
+      const ms = Date.now() - new Date(iso).getTime();
+      return Math.max(0, Math.floor(ms / 60000));
     }
 
     function isoMax(a,b){
@@ -619,24 +666,15 @@ function playRingtone(){
       }[m]));
     }
 
-    function setEmpty(isEmpty, msg){
-      emptyEl.style.display = isEmpty ? "block" : "none";
-      if(isEmpty) emptyEl.textContent = msg || "لا يوجد بيانات";
-    }
-
-    function setNetStatus(type, text){
-      netStatus.classList.remove("ok","err","info");
-      if(type) netStatus.classList.add(type);
-      netStatus.textContent = text;
+    function updateNewCount(){
+      const count = Array.from(ordersMap.values()).filter(o => o.status === "NEW").length;
+      newCountBadge.textContent = `طلبات جديدة: ${count}`;
     }
 
     // ===== Render Orders =====
     function getRenderedOrders(){
       let list = Array.from(ordersMap.values());
-
-      if(filterNewOnly){
-        list = list.filter(o => o.status === "NEW");
-      }
+      if(filterNewOnly) list = list.filter(o => o.status === "NEW");
 
       if(sortMode === "TABLE"){
         list.sort((a,b)=>{
@@ -648,7 +686,6 @@ function playRingtone(){
       } else {
         list.sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
       }
-
       return list;
     }
 
@@ -656,36 +693,37 @@ function playRingtone(){
       ordersEl.innerHTML = "";
 
       const list = getRenderedOrders();
+      updateNewCount();
 
       if(list.length === 0){
-        setEmpty(true, filterNewOnly ? "لا توجد طلبات NEW" : "لا يوجد طلبات حالياً");
+        setEmpty(true, "لا توجد طلبات جديدة الآن ✅");
         return;
-      } else {
-        setEmpty(false);
-      }
+      } else setEmpty(false);
 
       const frag = document.createDocumentFragment();
 
       list.forEach(o=>{
-        const statusClass = (o.status === "NEW") ? "status new" : "status sent";
-
-        const actionBtn = (o.status === "NEW")
-          ? `<button class="btn primary" type="button" data-send-kitchen="${o.orderId}">إرسال للمطبخ</button>`
-          : ``;
-
-        const detailsBtn = `<button class="btn" type="button" data-details="${o.orderId}">تفاصيل</button>`;
+        const mins = minutesSince(o.createdAt);
+        const late = mins >= 5;
 
         const el = document.createElement("div");
         el.className = "card";
         el.innerHTML = `
-          <div class="meta">
-            <div class="t">طلب #${o.orderId} • طاولة ${o.tableNumber}</div>
-            <div class="s">${formatTime(o.createdAt)} • الإجمالي: ${Number(o.totalAmount ?? 0).toFixed(2)}</div>
+          <div class="cardTop">
+            <div class="tablePill">🪑 <b>طاولة ${o.tableNumber}</b></div>
+            <div class="timePill ${late ? "late" : ""}">
+              ${late ? "⏳ متأخر" : "🕒"} ${formatTime(o.createdAt)} • ${mins} د
+            </div>
           </div>
-          <div class="right">
-            <span class="${statusClass}">${orderStatusLabel(o.status)}</span>
-            ${detailsBtn}
-            ${actionBtn}
+
+          <div class="cardBottom">
+            <span class="status">طلب جديد</span>
+            <span class="total">الإجمالي: ${Number(o.totalAmount ?? 0).toFixed(2)}</span>
+
+            <div class="actions">
+              <button class="btn" type="button" data-details="${o.orderId}">تفاصيل</button>
+              <button class="btn primary big" type="button" data-send-kitchen="${o.orderId}">إرسال للمطبخ</button>
+            </div>
           </div>
         `;
         frag.appendChild(el);
@@ -694,11 +732,17 @@ function playRingtone(){
       ordersEl.appendChild(frag);
     }
 
-    // ===== Render Calls =====
+    // ===== Render Calls (unchanged) =====
+    function callLabel(t){
+      if(t==="WAITER") return "استدعاء نادل";
+      if(t==="NARA")   return "نارا (شيشا)";
+      if(t==="BILL")   return "الحساب";
+      return t;
+    }
+
     function renderCalls(){
       callsEl.innerHTML = "";
 
-      // delete expired
       for(const [id,c] of callsMap.entries()){
         if(remainingSeconds(c.createdAt) <= 0) callsMap.delete(id);
       }
@@ -721,12 +765,13 @@ function playRingtone(){
         const el = document.createElement("div");
         el.className = "card";
         el.innerHTML = `
-          <div class="meta">
-            <div class="t">طاولة ${c.tableNumber}</div>
-            <div class="s">${callLabel(c.callType)} • ${formatTime(c.createdAt)}</div>
+          <div class="cardTop">
+            <div class="tablePill">🪑 <b>طاولة ${c.tableNumber}</b></div>
+            <div class="timePill">🔔 ${callLabel(c.callType)}</div>
           </div>
-          <div class="right">
+          <div class="cardBottom">
             <span class="badge info">${m}:${String(s).padStart(2,'0')}</span>
+            <span class="timePill">🕒 ${formatTime(c.createdAt)}</span>
           </div>
         `;
         frag.appendChild(el);
@@ -759,14 +804,7 @@ function playRingtone(){
       });
     });
 
-    // ===== Filters =====
-    chipNewOnly.addEventListener("click", ()=>{
-      filterNewOnly = !filterNewOnly;
-      chipNewOnly.classList.toggle("active", filterNewOnly);
-      chipNewOnly.setAttribute("aria-pressed", filterNewOnly ? "true" : "false");
-      renderOrders();
-    });
-
+    // ===== Sort chips =====
     chipSortTime.addEventListener("click", ()=>{
       sortMode = "TIME";
       chipSortTime.classList.add("active");
@@ -781,13 +819,13 @@ function playRingtone(){
       renderOrders();
     });
 
-    // ===== Poll Orders =====
+    // ===== Poll Orders (NEW only endpoint) =====
     async function pollOrders(){
       if(pollingOrders) return;
       pollingOrders = true;
 
       try{
-        const url = new URL(`${API}/orders`);
+        const url = new URL(`${API}/orders/new`);
         url.searchParams.set("page","0");
         url.searchParams.set("size","50");
         if(orderSince) url.searchParams.set("since", orderSince);
@@ -812,8 +850,6 @@ function playRingtone(){
         const data = await res.json();
         const content = data.content || [];
 
-        // Always advance orderSince to max createdAt returned (even if already seen),
-        // so we don't get stuck re-fetching same page.
         let maxCreated = orderSince;
 
         if(content.length){
@@ -821,8 +857,6 @@ function playRingtone(){
 
           content.forEach(o=>{
             maxCreated = isoMax(maxCreated, o.createdAt);
-
-            // store latest version even if already seen (status/total may change)
             ordersMap.set(o.orderId, o);
 
             if(!seenOrderIds.has(o.orderId)){
@@ -839,6 +873,7 @@ function playRingtone(){
           if(activeTab === "orders") renderOrders();
         } else {
           firstOrdersLoad = false;
+          if(activeTab === "orders") renderOrders();
         }
       }catch(e){
         console.error("pollOrders", e);
@@ -848,7 +883,7 @@ function playRingtone(){
       }
     }
 
-    // ===== Poll Calls =====
+    // ===== Poll Calls (unchanged) =====
     async function pollCalls(){
       if(pollingCalls) return;
       pollingCalls = true;
@@ -869,7 +904,7 @@ function playRingtone(){
         }
         if(!res.ok) return;
 
-        const data = await res.json(); // array
+        const data = await res.json();
         let maxCreated = callSince;
 
         if(data.length){
@@ -877,7 +912,6 @@ function playRingtone(){
 
           data.forEach(c=>{
             maxCreated = isoMax(maxCreated, c.createdAt);
-
             callsMap.set(c.id, c);
 
             if(!seenCallIds.has(c.id)){
@@ -894,6 +928,7 @@ function playRingtone(){
           if(activeTab === "calls") renderCalls();
         } else {
           firstCallsLoad = false;
+          if(activeTab === "calls") renderCalls();
         }
       }catch(e){
         console.error("pollCalls", e);
@@ -909,13 +944,11 @@ function playRingtone(){
         headers:{ "Authorization": `Bearer ${auth.token}`, "Accept":"application/json" }
       });
       if(!res.ok) throw new Error("patch failed");
-      const updated = await res.json().catch(()=>null);
 
-      const o = ordersMap.get(orderId);
-      if(o && updated?.status){
-        o.status = updated.status;
-        ordersMap.set(orderId, o);
-      }
+      // ✅ remove from screen6 immediately
+      ordersMap.delete(orderId);
+      seenOrderIds.delete(orderId);
+      updateNewCount();
     }
 
     // ===== Modal =====
@@ -952,12 +985,11 @@ function playRingtone(){
 
         modalTitle.textContent = `تفاصيل الطلب #${d.orderId} • طاولة ${d.tableNumber}`;
 
-        const status = d.status || "—";
         const total = Number(d.totalAmount ?? 0).toFixed(2);
         const note = (d.note || "").trim();
 
         modalBody.innerHTML = `
-          <div class="line"><span>الحالة</span><b>${escapeHtml(status)}</b></div>
+          <div class="line"><span>الحالة</span><b>${escapeHtml(d.status || "—")}</b></div>
           <div class="line"><span>الوقت</span><b>${escapeHtml(formatTime(d.createdAt))}</b></div>
           <div class="line"><span>الإجمالي</span><b>${total}</b></div>
           ${note ? `<div class="line"><span>ملاحظة</span><b>${escapeHtml(note)}</b></div>` : ``}
@@ -999,7 +1031,6 @@ function playRingtone(){
 
     modalSendKitchenBtn.addEventListener("click", async ()=>{
       if(!openOrderId) return;
-
       modalSendKitchenBtn.disabled = true;
       const old = modalSendKitchenBtn.textContent;
       modalSendKitchenBtn.textContent = "جارٍ الإرسال...";
@@ -1007,7 +1038,7 @@ function playRingtone(){
       try{
         await markSentToKitchen(openOrderId);
         showToast("✅ تم إرسال الطلب للمطبخ");
-        await loadOrderDetails(openOrderId);
+        closeModal();
         if(activeTab==="orders") renderOrders();
       }catch{
         showToast("فشل إرسال الطلب للمطبخ");
@@ -1052,8 +1083,6 @@ function playRingtone(){
     // ===== Timers =====
     setInterval(pollOrders, ORDERS_POLL_MS);
     setInterval(pollCalls,  CALLS_POLL_MS);
-
-    // Update calls countdown every second (only when calls tab is visible)
     setInterval(()=>{ if(activeTab==="calls") renderCalls(); }, 1000);
 
     // Initial load
@@ -1065,10 +1094,4 @@ function playRingtone(){
 
 </body>
 </html>
-
-
-
-
-
-
 

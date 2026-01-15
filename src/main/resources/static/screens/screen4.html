@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>طلب خدمة</title>
+
+    <style>
+        :root{
+          --bg:#0b0f14;
+          --text:#e5e7eb;
+          --muted:#94a3b8;
+          --border: rgba(255,255,255,.09);
+          --shadow: 0 12px 36px rgba(0,0,0,.45);
+          --radius: 20px;
+
+          --primary:#22c55e;
+          --primary2: rgba(34,197,94,.12);
+          --danger:#f87171;
+          --card: rgba(17,24,38,.78);
+
+          --focus: 0 0 0 3px rgba(34,197,94,.28);
+          --tap: rgba(255,255,255,.07);
+        }
+
+        *{box-sizing:border-box}
+        html,body{height:100%}
+        body{
+          margin:0;
+          font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Tahoma, Arial, "Noto Sans Arabic", sans-serif;
+          background: radial-gradient(1200px 700px at 20% -10%, rgba(34,197,94,.18), transparent 55%),
+                      radial-gradient(900px 600px at 110% 10%, rgba(59,130,246,.14), transparent 55%),
+                      var(--bg);
+          color: var(--text);
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        .app{
+          max-width: 520px;
+          margin: 0 auto;
+          min-height: 100vh;
+          padding: 0 14px 18px;
+          display:flex;
+          flex-direction:column;
+          gap: 14px;
+        }
+
+        /* Topbar */
+        .topbar{
+          position: sticky;
+          top:0;
+          z-index: 10;
+          background: linear-gradient(180deg, rgba(17,24,38,.98), rgba(17,24,38,.90));
+          backdrop-filter: blur(10px);
+          border-bottom: 1px solid var(--border);
+          margin: 0 -14px;
+          padding: 0 14px;
+        }
+        .topbar-inner{
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          gap: 10px;
+          padding: 14px 0;
+        }
+        .title{
+          display:flex; align-items:center; gap:10px; min-width:0;
+        }
+        .logo{
+          width: 38px; height: 38px;
+          border-radius: 14px;
+          background: linear-gradient(135deg, rgba(34,197,94,.35), rgba(34,197,94,.08));
+          border: 1px solid rgba(34,197,94,.35);
+          display:grid; place-items:center;
+          font-weight: 1000;
+          color:#bbf7d0;
+          user-select:none;
+          flex: 0 0 auto;
+        }
+        .title-text{min-width:0}
+        .title-text .h{
+          margin:0;
+          font-weight: 1000;
+          font-size: 15px;
+          white-space: nowrap;
+          overflow:hidden;
+          text-overflow: ellipsis;
+        }
+        .title-text .sub{
+          margin: 2px 0 0;
+          color: var(--muted);
+          font-weight: 900;
+          font-size: 12.5px;
+          white-space: nowrap;
+          overflow:hidden;
+          text-overflow: ellipsis;
+        }
+
+        .btn{
+          border-radius: 14px;
+          padding: 10px 12px;
+          font-weight: 1000;
+          border: 1px solid rgba(255,255,255,.12);
+          background: rgba(255,255,255,.04);
+          color: var(--text);
+          cursor: pointer;
+          user-select: none;
+          white-space: nowrap;
+          text-decoration:none;
+          display:inline-flex;
+          align-items:center;
+          gap: 8px;
+          transition: transform .08s ease, background .18s ease, opacity .18s ease;
+        }
+        .btn:active{ transform: translateY(1px); background: var(--tap); }
+        .btn:focus-visible{ outline:none; box-shadow: var(--focus); }
+        .btn.primary{
+          background: var(--primary2);
+          border-color: rgba(34,197,94,.35);
+          color:#dcfce7;
+        }
+        .btn[disabled], .btn.disabled{
+          opacity:.55;
+          cursor:not-allowed;
+          pointer-events:none;
+        }
+
+        .card{
+          background: linear-gradient(180deg, rgba(17,24,38,.88), rgba(17,24,38,.72));
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
+          padding: 14px;
+          box-shadow: var(--shadow);
+        }
+
+        h1{
+          margin: 6px 0 4px;
+          font-size: 18px;
+          font-weight: 1000;
+          text-align:center;
+        }
+        .subcenter{
+          text-align:center;
+          color: var(--muted);
+          font-weight: 900;
+          font-size: 13px;
+          margin-bottom: 10px;
+        }
+
+        .services{
+          display:grid;
+          grid-template-columns: 1fr;
+          gap: 12px;
+          margin-top: 10px;
+        }
+
+        .svc{
+          padding: 16px;
+          border-radius: 18px;
+          border: 1px solid rgba(255,255,255,.10);
+          background: rgba(255,255,255,.04);
+          cursor:pointer;
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          gap: 12px;
+          transition: transform .08s ease, background .18s ease, border-color .18s ease, opacity .18s ease;
+        }
+        .svc:active{ transform: translateY(1px); background: var(--tap); }
+        .svc:focus-visible{ outline:none; box-shadow: var(--focus); }
+        .svc.selected{
+          border-color: rgba(34,197,94,.40);
+          background: var(--primary2);
+        }
+        .svc.disabled{
+          opacity:.55;
+          cursor:not-allowed;
+          pointer-events:none;
+        }
+
+        .svc .left{
+          display:flex;
+          align-items:center;
+          gap: 12px;
+          min-width:0;
+        }
+        .icon{
+          width: 46px; height: 46px;
+          border-radius: 16px;
+          display:grid;
+          place-items:center;
+          font-size: 22px;
+          background: rgba(255,255,255,.06);
+          border: 1px solid rgba(255,255,255,.12);
+          flex: 0 0 auto;
+        }
+        .svc .txt{ min-width:0; }
+        .svc .t{
+          font-weight: 1000;
+          font-size: 14px;
+          white-space: nowrap;
+          overflow:hidden;
+          text-overflow: ellipsis;
+        }
+        .svc .d{
+          font-size: 12.5px;
+          color: var(--muted);
+          font-weight: 900;
+          margin-top: 2px;
+          white-space: nowrap;
+          overflow:hidden;
+          text-overflow: ellipsis;
+        }
+
+        .bottom{
+          margin-top:auto;
+          display:flex;
+          flex-direction:column;
+          gap: 10px;
+        }
+
+        .info{
+          text-align:center;
+          font-weight: 900;
+          font-size: 13px;
+          color: var(--muted);
+          min-height: 18px;
+        }
+
+        /* Toast */
+        .toast{
+          position: fixed;
+          left:50%;
+          transform:translateX(-50%);
+          bottom:18px;
+          width: min(520px, calc(100% - 24px));
+          background: rgba(17,24,38,.92);
+          border:1px solid rgba(255,255,255,.12);
+          border-radius: 14px;
+          padding: 12px;
+          display:none;
+          font-weight: 900;
+          text-align:center;
+          box-shadow: 0 14px 34px rgba(0,0,0,.45);
+          z-index: 30;
+        }
+
+        @media (prefers-reduced-motion: reduce){
+          *{ transition:none !important; }
+        }
+    </style>
+</head>
+
+<body>
+<div class="app">
+
+    <header class="topbar">
+        <div class="topbar-inner">
+            <div class="title">
+                <div class="logo">R</div>
+                <div class="title-text">
+                    <p class="h">طلب خدمة</p>
+                    <p class="sub" id="tableLine">—</p>
+                </div>
+            </div>
+
+            <a class="btn" id="backBtn" href="screen1.html" aria-label="الرجوع للمنيو">⬅️ الرجوع</a>
+        </div>
+    </header>
+
+    <div class="card">
+        <h1>🛎️ اختر نوع الخدمة</h1>
+        <div class="subcenter" id="hintLine">اختر نوع الخدمة ثم اضغط إرسال</div>
+
+        <div class="services" id="services" role="list">
+            <button class="svc" type="button" data-type="WAITER" role="listitem">
+                <div class="left">
+                    <div class="icon">👨‍🍳</div>
+                    <div class="txt">
+                        <div class="t">استدعاء النادل</div>
+                        <div class="d">بحاجة لمساعدة</div>
+                    </div>
+                </div>
+            </button>
+
+            <button class="svc" type="button" data-type="NARA" role="listitem">
+                <div class="left">
+                    <div class="icon">🔥</div>
+                    <div class="txt">
+                        <div class="t">نارا (للشيشا)</div>
+                        <div class="d">تجديد الفحم</div>
+                    </div>
+                </div>
+            </button>
+
+            <button class="svc" type="button" data-type="BILL" role="listitem">
+                <div class="left">
+                    <div class="icon">💳</div>
+                    <div class="txt">
+                        <div class="t">الحساب</div>
+                        <div class="d">طلب الفاتورة</div>
+                    </div>
+                </div>
+            </button>
+        </div>
+    </div>
+
+    <div class="bottom">
+        <div class="info" id="infoLine" aria-live="polite"></div>
+        <button class="btn primary" id="sendBtn" type="button" disabled>إرسال الطلب</button>
+    </div>
+
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+    const API_BASE = "http://localhost:8081";
+    const ENDPOINT = (token) =>
+      `${API_BASE}/api/v1/public/tables/${encodeURIComponent(token)}/service-calls`;
+
+    const TABLE_LABEL_KEY = "rq_table_label_v1";
+    const TABLE_TOKEN_KEY = "rq_table_token_v1";
+
+    // Persist cooldown across reloads
+    const COOLDOWN_UNTIL_KEY = "rq_service_cooldown_until_v1"; // epoch ms
+
+    const servicesEl = document.getElementById('services');
+    const sendBtn = document.getElementById('sendBtn');
+    const backBtn = document.getElementById('backBtn');
+    const infoLine = document.getElementById('infoLine');
+    const tableLine = document.getElementById('tableLine');
+    const hintLine = document.getElementById('hintLine');
+    const toast = document.getElementById('toast');
+
+    let selectedType = null;
+    let cooldownTimer = null;
+
+    function showToast(msg){
+      toast.textContent = msg;
+      toast.style.display = 'block';
+      clearTimeout(toast._t);
+      toast._t = setTimeout(()=>toast.style.display='none', 1800);
+    }
+
+    function getTokenFromUrl(){
+      const url = new URL(window.location.href);
+      return url.searchParams.get("token") || url.searchParams.get("qrToken") || url.searchParams.get("t");
+    }
+
+    function getToken(){
+      return localStorage.getItem(TABLE_TOKEN_KEY) || getTokenFromUrl();
+    }
+
+    function setBackHref(){
+      const token = getToken();
+      backBtn.href = token ? `screen1.html?token=${encodeURIComponent(token)}` : "screen1.html";
+    }
+
+    function setUIEnabled(enabled){
+      servicesEl.querySelectorAll('.svc').forEach(btn => {
+        btn.classList.toggle('disabled', !enabled);
+        btn.disabled = !enabled;
+      });
+      // send button depends on enabled + selectedType
+      sendBtn.disabled = !enabled || !selectedType;
+    }
+
+    function clearSelection(){
+      selectedType = null;
+      servicesEl.querySelectorAll('.svc').forEach(x => x.classList.remove('selected'));
+      sendBtn.disabled = true;
+    }
+
+    function startCooldown(seconds){
+      const until = Date.now() + (seconds * 1000);
+      localStorage.setItem(COOLDOWN_UNTIL_KEY, String(until));
+      runCooldownTick();
+    }
+
+    function runCooldownTick(){
+      clearInterval(cooldownTimer);
+
+      const until = Number(localStorage.getItem(COOLDOWN_UNTIL_KEY) || "0");
+      const remain = Math.max(0, Math.ceil((until - Date.now()) / 1000));
+
+      if (remain <= 0){
+        localStorage.removeItem(COOLDOWN_UNTIL_KEY);
+        infoLine.textContent = "يمكنك إرسال طلب جديد الآن";
+        hintLine.textContent = "اختر نوع الخدمة ثم اضغط إرسال";
+        clearSelection();
+        setUIEnabled(true);
+        return;
+      }
+
+      // lock UI during cooldown
+      setUIEnabled(false);
+      clearSelection();
+
+      infoLine.textContent = `تم إرسال الطلب – متبقّي ${remain} ثانية`;
+      hintLine.textContent = "انتظر انتهاء الوقت لإرسال طلب جديد";
+
+      cooldownTimer = setInterval(() => {
+        const until2 = Number(localStorage.getItem(COOLDOWN_UNTIL_KEY) || "0");
+        const remain2 = Math.max(0, Math.ceil((until2 - Date.now()) / 1000));
+
+        infoLine.textContent = `تم إرسال الطلب – متبقّي ${remain2} ثانية`;
+        if (remain2 <= 0){
+          clearInterval(cooldownTimer);
+          runCooldownTick();
+        }
+      }, 1000);
+    }
+
+    // Select service
+    servicesEl.addEventListener('click', e => {
+      const svc = e.target.closest('.svc');
+      if(!svc || svc.classList.contains('disabled')) return;
+
+      selectedType = svc.dataset.type;
+      servicesEl.querySelectorAll('.svc').forEach(x => x.classList.toggle('selected', x === svc));
+
+      sendBtn.disabled = false;
+      infoLine.textContent = "";
+    });
+
+    // Send
+    sendBtn.addEventListener('click', async () => {
+      if(sendBtn.disabled || !selectedType) return;
+
+      const token = getToken();
+      if(!token){
+        showToast("QR Token غير موجود");
+        return;
+      }
+
+      // lock UI
+      sendBtn.disabled = true;
+      setUIEnabled(false);
+      infoLine.textContent = "جارٍ إرسال الطلب...";
+
+      try{
+        const res = await fetch(ENDPOINT(token),{
+          method:"POST",
+          headers:{
+            "Content-Type":"application/json",
+            "Accept":"application/json"
+          },
+          body: JSON.stringify({ callType: selectedType })
+        });
+
+        if(res.status === 429){
+          const err = await res.json().catch(()=>null);
+          showToast(err?.message || "يرجى الانتظار قبل إرسال طلب جديد");
+          // if backend gives cooldown seconds, use it; otherwise 180
+          const seconds = Number(err?.cooldownSeconds || err?.retryAfterSeconds || 180);
+          startCooldown(Number.isFinite(seconds) ? seconds : 180);
+          return;
+        }
+
+        if(!res.ok){
+          let msg = "فشل إرسال طلب الخدمة";
+          try{
+            const err = await res.json();
+            if(err?.message) msg = err.message;
+          }catch{}
+          showToast(msg);
+          infoLine.textContent = "حدث خطأ";
+          setUIEnabled(true);
+          // keep selection but require user to press send again
+          sendBtn.disabled = !selectedType;
+          return;
+        }
+
+        showToast("✅ تم إرسال طلب الخدمة");
+        startCooldown(180);
+
+      }catch(e){
+        console.error(e);
+        showToast("تعذر الاتصال بالخادم");
+        infoLine.textContent = "فشل الاتصال";
+        setUIEnabled(true);
+        sendBtn.disabled = !selectedType;
+      }
+    });
+
+    // ===== Init =====
+    tableLine.textContent = localStorage.getItem(TABLE_LABEL_KEY) || "طاولة —";
+    setBackHref();
+
+    // if there is a cooldown already, resume it
+    runCooldownTick();
+
+    // If no cooldown, enable selecting
+    if(!localStorage.getItem(COOLDOWN_UNTIL_KEY)){
+      setUIEnabled(true);
+      infoLine.textContent = "";
+    }
+</script>
+</body>
+</html>
+
+

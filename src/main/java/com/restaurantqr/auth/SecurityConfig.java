@@ -12,6 +12,11 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 @Configuration
 public class SecurityConfig {
@@ -37,8 +42,6 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/", "/index.html",
                                 "/health.txt",
-                                "/screens/**",
-                                "/favicon.ico",
                                 "/**/*.css", "/**/*.js",
                                 "/**/*.png", "/**/*.jpg", "/**/*.jpeg", "/**/*.svg", "/**/*.webp", "/**/*.ico"
                         ).permitAll()
@@ -69,13 +72,27 @@ public class SecurityConfig {
                 // ✅ all static resources
                 "/", "/index.html",
                 "/health.txt",
-                "/screens/**",
-                "/uploads/**",
                 "/**/*.css", "/**/*.js",
                 "/**/*.png", "/**/*.jpg", "/**/*.jpeg", "/**/*.svg", "/**/*.webp", "/**/*.ico",
                 "/favicon.ico"
         );
     }
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
 
+        // لاحقًا استبدلها بدومين الواجهة الحقيقي (مثلا https://staff.yourdomain.com)
+        config.setAllowedOrigins(List.of( "http://app.local"));
+        config.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
+        config.setAllowedHeaders(List.of("Authorization","Content-Type","Accept"));
+        config.setExposedHeaders(List.of("Authorization"));
+        config.setAllowCredentials(false); // إذا تستخدم cookies. إن كنت JWT فقط في header ممكن false
 
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
 }
+
+
+

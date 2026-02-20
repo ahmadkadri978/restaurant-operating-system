@@ -24,7 +24,7 @@ app:
   jwt:
     secret: ${APP_JWT_SECRET}
     issuer: restaurant-qr
-    expiration-minutes: 60
+    expiration-minutes: 21600
 
 logging:
   level:
@@ -38,6 +38,9 @@ management:
   endpoint:
     health:
       show-details: never
+
+
+
 
 
 

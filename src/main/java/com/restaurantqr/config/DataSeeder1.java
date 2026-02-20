@@ -38,7 +38,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
-@Configuration @Profile("prod")
+@Configuration @Profile("dev")
 public class DataSeeder1 {
     @Bean
     CommandLineRunner seedData(
@@ -73,7 +73,7 @@ public class DataSeeder1 {
             userRepository.save(makeUser("staff2", "123456", Role.STAFF, restaurant, passwordEncoder));
 
             // optional
-            userRepository.save(makeUser("manager1", "123456", Role.MANAGER, restaurant, passwordEncoder));
+//            userRepository.save(makeUser("manager1", "123456", Role.MANAGER, restaurant, passwordEncoder));
 
             // =========================
             // 3) Categories + Items (enough items for orders)

@@ -1,6 +1,7 @@
 package com.restaurantqr.menu;
 
 import com.restaurantqr.exception.ApiErrorResponse;
+import com.restaurantqr.table.PublicSessionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -18,10 +19,12 @@ import org.springframework.web.bind.annotation.*;
 public class MenuController {
 
     private final MenuService menuService;
+    private final PublicSessionService publicSessionService;
 
     private static final Logger log = LoggerFactory.getLogger(MenuController.class);
-    public MenuController(MenuService menuService) {
+    public MenuController(MenuService menuService, PublicSessionService publicSessionService) {
         this.menuService = menuService;
+        this.publicSessionService = publicSessionService;
     }
 
     @Operation(
@@ -44,9 +47,16 @@ public class MenuController {
                             schema = @Schema(implementation = ApiErrorResponse.class)))
     })
     @GetMapping("/tables/{qrToken}/menu")
-    public ResponseEntity<MenuResponse> getMenu(@PathVariable String qrToken) {
-        log.debug("GET /public/tables/{}/menu", qrToken);
-        return ResponseEntity.ok(menuService.getMenuByQrToken(qrToken));
+    public ResponseEntity<MenuResponse> getMenu(@PathVariable String qrToken, @RequestParam String code) {
+        log.info("PUBLIC_GET_MENU_REQUEST | qrToken={} | codeProvided={}",
+                qrToken, code != null);
+        publicSessionService.verifySessionOrThrow(qrToken, code);
+        MenuResponse response = menuService.getMenuByQrToken(qrToken);
+        log.info("PUBLIC_GET_MENU_SUCCESS | qrToken={} | categoriesCount={} | itemsCount={}",
+                qrToken,
+                response.categories().size(),
+                response.items().size());
+        return response != null ? ResponseEntity.ok(response) : ResponseEntity.notFound().build();
     }
 }
 

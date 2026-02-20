@@ -64,5 +64,10 @@ public class GlobalExceptionHandler {
         );
         return ResponseEntity.status(status).body(body);
     }
+    @ExceptionHandler(InvalidSessionCodeException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidSessionCode(InvalidSessionCodeException ex, HttpServletRequest req) {
+        return build(HttpStatus.BAD_REQUEST, ex.errorCode(), ex.getMessage(), req.getRequestURI());
+    }
+
 }
 

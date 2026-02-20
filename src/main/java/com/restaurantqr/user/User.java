@@ -97,6 +97,8 @@ public class User {
         isActive = active;
     }
 
+
+
     public Instant getCreatedAt() {
         return createdAt;
     }

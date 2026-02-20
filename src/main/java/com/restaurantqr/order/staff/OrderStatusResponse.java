@@ -10,5 +10,7 @@ public record OrderStatusResponse(
         @Schema(example = "SENT_TO_KITCHEN") OrderStatus status,
         @Schema(example = "2026-01-07T21:30:00.000Z") Instant sentToKitchenAt,
         @Schema(example = "2026-01-07T21:30:00.000Z")
-        Instant doneAt
+        Instant doneAt,
+        @Schema(example = "2026-01-07T21:30:00.000Z")
+        Instant cancelledAt
 ) {}

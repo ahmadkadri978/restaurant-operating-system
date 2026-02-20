@@ -1,6 +1,7 @@
 package com.restaurantqr.auth;
 
 import com.restaurantqr.auth.dto.AuthPrincipal;
+import com.restaurantqr.user.UserRepository;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -20,9 +21,11 @@ import java.util.List;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
+    private final UserRepository userRepository;
 
-    public JwtAuthFilter(JwtService jwtService) {
+    public JwtAuthFilter(JwtService jwtService, UserRepository userRepository) {
         this.jwtService = jwtService;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -46,6 +49,21 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             String role = claims.get("role", String.class);
             Long restaurantId = claims.get("restaurantId", Long.class);
 
+
+            var user = userRepository.findById(userId).orElse(null);
+
+            if (user == null || !user.isActive()) {
+                SecurityContextHolder.clearContext();
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setCharacterEncoding("UTF-8");
+                response.setContentType("application/json");
+                response.setHeader("Cache-Control", "no-store");
+                response.getWriter().write("{\"message\":\"Account is inactive\"}");
+                return;
+            }
+
+
+
             var principal = new AuthPrincipal(userId, role, restaurantId);
 
             var auth = new UsernamePasswordAuthenticationToken(
@@ -58,6 +76,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         } catch (JwtException e) {
             SecurityContextHolder.clearContext();
         }
+
 
         filterChain.doFilter(request, response);
     }

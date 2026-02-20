@@ -10,6 +10,7 @@ import org.slf4j.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.management.Notification;
 import java.time.Instant;
 import java.util.List;
 
@@ -20,11 +21,13 @@ public class ServiceCallService {
 
     private final RestaurantTableRepository tableRepository;
     private final ServiceCallRepository serviceCallRepository;
+    private final  FcmPushService fcmPushService;
 
     public ServiceCallService(RestaurantTableRepository tableRepository,
-                              ServiceCallRepository serviceCallRepository) {
+                              ServiceCallRepository serviceCallRepository, FcmPushService fcmPushService) {
         this.tableRepository = tableRepository;
         this.serviceCallRepository = serviceCallRepository;
+        this.fcmPushService = fcmPushService;
     }
 
     @Transactional
@@ -63,6 +66,16 @@ public class ServiceCallService {
 
         log.info("Service call created. id={}, restaurantId={}, tableId={}",
                 saved.getId(), restaurant.getId(), table.getId());
+
+        String callTypeAr = switch (saved.getCallType()) {
+            case WAITER -> "نادل";
+            case BILL   -> "حساب";
+            case NARA   -> "نارا";
+            default     -> "نداء";
+        };
+        fcmPushService.notifyServiceCall(restaurant.getId(), table.getTableNumber(), callTypeAr);
+
+
 
         return new ServiceCallResponse(
                 saved.getId(),

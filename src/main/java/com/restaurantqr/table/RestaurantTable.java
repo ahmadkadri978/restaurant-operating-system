@@ -35,16 +35,25 @@ public class RestaurantTable {
     @Column(nullable = false)
     private Instant updatedAt = Instant.now();
 
+    @Column(name = "session_code", length = 4)
+    private String sessionCode;
+
+    @Column(name = "session_opened_at")
+    private Instant sessionOpenedAt;
+
+
     public RestaurantTable() {
     }
 
-    public RestaurantTable(Restaurant restaurant, Integer tableNumber, String qrToken, boolean isActive, Instant createdAt, Instant updatedAt) {
+    public RestaurantTable(Restaurant restaurant, Integer tableNumber, String qrToken, boolean isActive, Instant createdAt, Instant updatedAt, String sessionCode, Instant sessionOpenedAt) {
         this.restaurant = restaurant;
         this.tableNumber = tableNumber;
         this.qrToken = qrToken;
         this.isActive = isActive;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.sessionCode = sessionCode;
+        this.sessionOpenedAt = sessionOpenedAt;
     }
 
     public Long getId() {
@@ -101,5 +110,21 @@ public class RestaurantTable {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public String getSessionCode() {
+        return sessionCode;
+    }
+
+    public void setSessionCode(String sessionCode) {
+        this.sessionCode = sessionCode;
+    }
+
+    public Instant getSessionOpenedAt() {
+        return sessionOpenedAt;
+    }
+
+    public void setSessionOpenedAt(Instant sessionOpenedAt) {
+        this.sessionOpenedAt = sessionOpenedAt;
     }
 }

@@ -12,8 +12,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 CREATE TABLE restaurants (
   id           BIGINT NOT NULL AUTO_INCREMENT,
   code         VARCHAR(255) NULL,
-  name         VARCHAR(255) NOT NULL,
-  is_active    TINYINT(1) NOT NULL DEFAULT 1,
+  name         VARCHAR(255) NOT NULL,  is_active    TINYINT(1) NOT NULL DEFAULT 1,
   created_at   DATETIME(6) NOT NULL,
   updated_at   DATETIME(6) NOT NULL,
   PRIMARY KEY (id),
@@ -28,7 +27,7 @@ CREATE TABLE users (
   id            BIGINT NOT NULL AUTO_INCREMENT,
   username      VARCHAR(100) NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
-  role          ENUM('MANAGER','STAFF') NOT NULL,
+  role          ENUM('STAFF') NOT NULL,
   is_active     TINYINT(1) NOT NULL DEFAULT 1,
   restaurant_id BIGINT NOT NULL,
   created_at    DATETIME(6) NOT NULL,

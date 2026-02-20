@@ -42,6 +42,8 @@ public class CustomerOrder {
     private Instant sentToKitchenAt;
     @Column(name = "done_at")
     private Instant doneAt;
+    @Column(name = "cancelled_at")
+    private Instant cancelledAt;
 
     // Business rule (not DB): one order per minute per table
 
@@ -49,7 +51,7 @@ public class CustomerOrder {
     public CustomerOrder() {
     }
 
-    public CustomerOrder(Restaurant restaurant, RestaurantTable table, Instant createdAt, BigDecimal totalAmount, String note, OrderStatus status, Instant sentToKitchenAt, Instant doneAt) {
+    public CustomerOrder(Restaurant restaurant, RestaurantTable table, Instant createdAt, BigDecimal totalAmount, String note, OrderStatus status, Instant sentToKitchenAt, Instant doneAt, Instant cancelledAt) {
         this.restaurant = restaurant;
         this.table = table;
         this.createdAt = createdAt;
@@ -58,6 +60,7 @@ public class CustomerOrder {
         this.status = status;
         this.sentToKitchenAt = sentToKitchenAt;
         this.doneAt = doneAt;
+        this.cancelledAt = cancelledAt;
     }
 
     public OrderStatus getStatus() {
@@ -130,5 +133,13 @@ public class CustomerOrder {
 
     public void setDoneAt(Instant doneAt) {
         this.doneAt = doneAt;
+    }
+
+    public Instant getCancelledAt() {
+        return cancelledAt;
+    }
+
+    public void setCancelledAt(Instant cancelledAt) {
+        this.cancelledAt = cancelledAt;
     }
 }

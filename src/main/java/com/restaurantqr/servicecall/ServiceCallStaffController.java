@@ -12,6 +12,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,12 +23,16 @@ import java.util.List;
 @Tag(name = "Staff - Service Calls", description = "Staff dashboard endpoints (JWT required)")
 @RestController
 @RequestMapping("/api/v1/staff")
+@PreAuthorize("hasRole('STAFF') or hasRole('MANAGER')")
 public class ServiceCallStaffController {
 
     private final ServiceCallService serviceCallService;
 
-    public ServiceCallStaffController(ServiceCallService serviceCallService) {
+    private final PushTokenService pushTokenService;
+
+    public ServiceCallStaffController(ServiceCallService serviceCallService, PushTokenService pushTokenService) {
         this.serviceCallService = serviceCallService;
+        this.pushTokenService = pushTokenService;
     }
     @Operation(
             summary = "Get active service calls (polling supported)",
@@ -75,6 +81,23 @@ public class ServiceCallStaffController {
     ) {
         AuthPrincipal principal = (AuthPrincipal) authentication.getPrincipal();
         return serviceCallService.getActiveCalls(principal.restaurantId(), since);
+    }
+    @Operation(summary = "Save staff device push token (FCM)")
+    @PostMapping("/push-token")
+    public void savePushToken(Authentication authentication,
+                              @RequestBody @Valid SavePushTokenRequest req) {
+
+        AuthPrincipal principal = (AuthPrincipal) authentication.getPrincipal();
+        pushTokenService.saveToken(principal.restaurantId(), principal.userId(), req.token());
+    }
+
+    @Operation(summary = "Remove staff device push token (FCM)")
+    @DeleteMapping("/push-token")
+    public void removePushToken(Authentication authentication,
+                                @RequestParam String token) {
+
+        AuthPrincipal p = (AuthPrincipal) authentication.getPrincipal();
+        pushTokenService.removeToken(p.userId(), token);
     }
 
 }

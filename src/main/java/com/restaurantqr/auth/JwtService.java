@@ -5,6 +5,8 @@ import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
@@ -18,6 +20,7 @@ public class JwtService {
 
     private final JwtProperties props;
     private final Key key;
+    private static final Logger log = LoggerFactory.getLogger(JwtService.class);
 
     public JwtService(JwtProperties props) {
         if (props.secret() == null || props.secret().isBlank()) {
@@ -34,6 +37,7 @@ public class JwtService {
     public String generateToken(Long userId, String role, Long restaurantId) {
         Instant now = Instant.now();
         Instant exp = now.plusSeconds(props.expirationMinutes() * 60);
+        log.info("JWT props.expirationMinutes() = {}", props.expirationMinutes());
 
         return Jwts.builder()
                 .issuer(props.issuer())

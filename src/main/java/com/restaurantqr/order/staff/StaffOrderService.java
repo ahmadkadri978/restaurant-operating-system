@@ -81,7 +81,7 @@ public class StaffOrderService {
 
         if (order.getStatus() == OrderStatus.SENT_TO_KITCHEN) {
             log.info("Order already SENT_TO_KITCHEN. orderId={}", orderId);
-            return new OrderStatusResponse(order.getId(), order.getStatus(), order.getSentToKitchenAt(),null);
+            return new OrderStatusResponse(order.getId(), order.getStatus(), order.getSentToKitchenAt(),null,null);
         }
 
         order.setStatus(OrderStatus.SENT_TO_KITCHEN);
@@ -91,7 +91,7 @@ public class StaffOrderService {
         orderRepository.save(order);
 
         log.info("Order marked as SENT_TO_KITCHEN. orderId={}", orderId);
-        return new OrderStatusResponse(order.getId(), order.getStatus(), order.getSentToKitchenAt(),null);
+        return new OrderStatusResponse(order.getId(), order.getStatus(), order.getSentToKitchenAt(),null,null);
     }
     @Transactional
     public OrderStatusResponse markDone(Long restaurantId, Long orderId) {
@@ -112,7 +112,8 @@ public class StaffOrderService {
                     order.getId(),
                     order.getStatus(),
                     order.getSentToKitchenAt(),
-                    order.getDoneAt()
+                    order.getDoneAt(),
+                    order.getCancelledAt()
             );
         }
 
@@ -131,7 +132,51 @@ public class StaffOrderService {
                 order.getId(),
                 order.getStatus(),
                 order.getSentToKitchenAt(),
-                order.getDoneAt()
+                order.getDoneAt(),
+                order.getCancelledAt()
+        );
+    }
+    @Transactional
+    public OrderStatusResponse markCancelled(Long restaurantId, Long orderId) {
+
+        log.info("Mark order CANCELLED. restaurantId={}, orderId={}", restaurantId, orderId);
+
+        CustomerOrder order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
+
+        // Restaurant boundary
+        if (!order.getRestaurant().getId().equals(restaurantId)) {
+            throw new ResourceNotFoundException("Order not found: " + orderId);
+        }
+
+        // Idempotent
+        if (order.getStatus() == OrderStatus.CANCELLED) {
+            return new OrderStatusResponse(
+                    order.getId(),
+                    order.getStatus(),
+                    order.getSentToKitchenAt(),
+                    order.getDoneAt(),
+                    order.getCancelledAt()
+            );
+        }
+
+        // Business rule (recommended)
+        // We usually allow CANCELLED only if it was NEW .
+        if (order.getStatus() != OrderStatus.NEW) {
+            throw new BusinessRuleException("Order must be NEW before marking CANCELLED");
+        }
+
+        order.setStatus(OrderStatus.CANCELLED);
+        order.setCancelledAt(Instant.now());
+
+        orderRepository.save(order);
+
+        return new OrderStatusResponse(
+                order.getId(),
+                order.getStatus(),
+                order.getSentToKitchenAt(),
+                order.getDoneAt(),
+                order.getCancelledAt()
         );
     }
 

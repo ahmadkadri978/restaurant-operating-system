@@ -1,0 +1,2 @@
+ALTER TABLE users
+MODIFY role ENUM('STAFF','MANAGER','KITCHEN') COLLATE utf8mb4_unicode_ci NOT NULL;

@@ -17,9 +17,9 @@ public class PublicSessionService {
         this.tableRepository = tableRepository;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public void verifySessionOrThrow(String qrToken, String code) {
-        RestaurantTable table = tableRepository.findByQrToken(qrToken)
+        RestaurantTable table = tableRepository.findByQrTokenForUpdate(qrToken)
                 .orElseThrow(() -> new ResourceNotFoundException("Table not found"));
 
         if (!table.isActive() || !table.getRestaurant().isActive()) {

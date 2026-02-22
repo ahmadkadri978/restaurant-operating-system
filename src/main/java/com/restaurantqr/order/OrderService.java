@@ -7,6 +7,7 @@ import com.restaurantqr.menu.MenuItem;
 import com.restaurantqr.menu.MenuItemRepository;
 import com.restaurantqr.order.staff.OrderStatus;
 import com.restaurantqr.order.staff.OrderStatusResponse;
+import com.restaurantqr.table.PublicSessionService;
 import com.restaurantqr.table.RestaurantTable;
 import com.restaurantqr.table.RestaurantTableRepository;
 import org.slf4j.Logger;
@@ -28,20 +29,26 @@ public class OrderService {
     private final MenuItemRepository menuItemRepository;
     private final CustomerOrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
+    private final PublicSessionService publicSessionService;
 
     public OrderService(RestaurantTableRepository tableRepository,
                         MenuItemRepository menuItemRepository,
                         CustomerOrderRepository orderRepository,
-                        OrderItemRepository orderItemRepository) {
+                        OrderItemRepository orderItemRepository, PublicSessionService publicSessionService) {
         this.tableRepository = tableRepository;
         this.menuItemRepository = menuItemRepository;
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
+        this.publicSessionService = publicSessionService;
     }
 
     @Transactional
-    public SubmitOrderResponse submitOrder(String qrToken, SubmitOrderRequest request) {
-        log.info("Submit order request received. qrToken={}, itemsCount={}", qrToken, request.items().size());
+    public SubmitOrderResponse submitOrder(String qrToken, String code, SubmitOrderRequest request) {
+        log.info("Submit order request received. qrToken={}, codeProvided={}, itemsCount={}",
+                qrToken, code != null, request.items().size());
+
+        // 0) Verify session code (NEW)
+        publicSessionService.verifySessionOrThrow(qrToken, code);
 
         // 1) Resolve table by QR
         RestaurantTable table = tableRepository.findActiveByQrTokenForUpdate(qrToken)
@@ -64,7 +71,6 @@ public class OrderService {
             log.warn("Rate limit violated. tableId={}, threshold={}", table.getId(), threshold);
             throw new RateLimitException("يمكن إرسال طلب واحد فقط لكل طاولة خلال دقيقة." +
                     "انتظر قليلًا ثم حاول مرة أخرى");
-
         }
 
         Long restaurantId = restaurant.getId();
@@ -75,7 +81,8 @@ public class OrderService {
                 .distinct()
                 .toList();
 
-        List<MenuItem> foundItems = menuItemRepository.findByIdInAndRestaurantIdAndIsActiveTrue(requestedIds, restaurantId);
+        List<MenuItem> foundItems = menuItemRepository
+                .findByIdInAndRestaurantIdAndIsActiveTrue(requestedIds, restaurantId);
 
         Map<Long, MenuItem> itemsById = foundItems.stream()
                 .collect(Collectors.toMap(MenuItem::getId, it -> it));
@@ -105,10 +112,8 @@ public class OrderService {
         order.setStatus(OrderStatus.NEW);
         order.setSentToKitchenAt(null);
 
-
         BigDecimal totalAmount = BigDecimal.ZERO;
 
-        // We'll create order first to get id (depending on strategy)
         order.setTotalAmount(BigDecimal.ZERO);
         CustomerOrder savedOrder = orderRepository.save(order);
 
@@ -117,7 +122,7 @@ public class OrderService {
         for (SubmitOrderItemRequest reqItem : request.items()) {
             MenuItem mi = itemsById.get(reqItem.menuItemId());
 
-            BigDecimal unitPrice = mi.getPrice(); // snapshot
+            BigDecimal unitPrice = mi.getPrice();
             BigDecimal lineTotal = unitPrice.multiply(BigDecimal.valueOf(reqItem.quantity()));
 
             totalAmount = totalAmount.add(lineTotal);
@@ -136,7 +141,6 @@ public class OrderService {
         orderItemRepository.saveAll(orderItems);
 
         savedOrder.setTotalAmount(totalAmount);
-        // update total
         CustomerOrder finalOrder = orderRepository.save(savedOrder);
 
         log.info("Order created successfully. orderId={}, tableId={}, restaurantId={}, totalAmount={}",

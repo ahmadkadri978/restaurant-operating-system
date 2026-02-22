@@ -35,6 +35,9 @@ public interface RestaurantTableRepository extends JpaRepository<RestaurantTable
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select t from RestaurantTable t where t.id = :id")
     Optional<RestaurantTable> findByIdForUpdate(@Param("id") Long id);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from RestaurantTable t join fetch t.restaurant where t.qrToken = :qrToken")
+    Optional<RestaurantTable> findByQrTokenForUpdate(@Param("qrToken") String qrToken);
 
     Optional<RestaurantTable> findByQrToken(String qrToken);
 }

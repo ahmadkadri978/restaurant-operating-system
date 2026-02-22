@@ -3,6 +3,7 @@ package com.restaurantqr.menu;
 import com.restaurantqr.exception.ApiErrorResponse;
 import com.restaurantqr.table.PublicSessionService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Public - Menu", description = "Customer endpoints (no JWT required)")
 @RestController
 @RequestMapping("/api/v1/public")
+
 public class MenuController {
 
     private final MenuService menuService;
@@ -28,26 +30,44 @@ public class MenuController {
     }
 
     @Operation(
-            summary = "Get menu for a table QR token",
+            summary = "Get menu for a table (QR token) with optional session enforcement",
             description = """
-                    Customer scans the table QR code and uses `qrToken` to fetch the menu.
-                    
-                    Returns active categories and available items for the table's restaurant.
-                    """
+                Customer scans the table QR code and uses `qrToken` to fetch the menu.
+
+              
+
+                **How the frontend should call this endpoint**
+                - Session disabled: `GET /api/v1/public/tables/{qrToken}/menu`
+                - Session enabled:  `GET /api/v1/public/tables/{qrToken}/menu?code=1234`
+
+                **Error cases**
+                - If session is required and `code` is missing or wrong → `400 INVALID_SESSION_CODE`.
+                """
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Menu loaded successfully",
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = MenuResponse.class))),
-            @ApiResponse(responseCode = "404", description = "Invalid/inactive QR token",
+
+            @ApiResponse(responseCode = "400", description = "Bad request (session code missing/invalid, or validation error)",
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = ApiErrorResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Restaurant inactive",
+
+            @ApiResponse(responseCode = "404", description = "Invalid/inactive QR token or table/restaurant inactive",
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = ApiErrorResponse.class)))
     })
+
     @GetMapping("/tables/{qrToken}/menu")
-    public ResponseEntity<MenuResponse> getMenu(@PathVariable String qrToken, @RequestParam String code) {
+    public ResponseEntity<MenuResponse> getMenu(@PathVariable String qrToken,
+                                                @Parameter(
+                                                        description = """
+                        Optional 4-digit session code.
+                        Required only when the restaurant has `sessionRequired=true`.
+                        Format: exactly 4 digits (e.g. 1234).
+                        """,
+                                                        example = "1234"
+                                                ) @RequestParam String code) {
         log.info("PUBLIC_GET_MENU_REQUEST | qrToken={} | codeProvided={}",
                 qrToken, code != null);
         publicSessionService.verifySessionOrThrow(qrToken, code);

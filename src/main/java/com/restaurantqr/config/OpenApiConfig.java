@@ -24,12 +24,12 @@ public class OpenApiConfig {
                                 Backend API for a multi-restaurant QR ordering system.
                                 
                                 **Core flows**
-                                - Customer scans table QR → views menu → submits orders (1 order/min per table).
+                                - Customer scans table QR → enters pin code--> views menu → submits orders (1 order/min per table).
                                 - Customer can send service calls (anti-spam cooldown).
                                 - Staff can view recent orders & active service calls (JWT protected).
                                 
                                 **Auth**
-                                - Staff/Manager login returns JWT.
+                                - Staff/Manager/kitchen login returns JWT.
                                 - Use JWT as: `Authorization: Bearer <token>`
                                 
                                 **Multi-tenant rule**

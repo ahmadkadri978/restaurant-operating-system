@@ -56,10 +56,14 @@ public class OrderController {
     @PostMapping("/tables/{qrToken}/orders")
     public ResponseEntity<SubmitOrderResponse> submitOrder(
             @PathVariable String qrToken,
+            @RequestParam String code,
             @Valid @RequestBody SubmitOrderRequest request
     ) {
-        log.info("POST /public/tables/{}/orders", qrToken);
-        SubmitOrderResponse resp = orderService.submitOrder(qrToken, request);
+        log.info("PUBLIC_SUBMIT_ORDER_REQUEST | qrToken={} | codeProvided={}", qrToken, code != null);
+
+        SubmitOrderResponse resp = orderService.submitOrder(qrToken, code, request);
+
+        log.info("PUBLIC_SUBMIT_ORDER_SUCCESS | qrToken={} | orderId={}", qrToken, resp.orderId());
         return ResponseEntity.status(HttpStatus.CREATED).body(resp);
     }
 }

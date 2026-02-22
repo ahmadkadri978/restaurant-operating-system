@@ -1,15 +1,21 @@
-spring:
-  application:
-    name: restaurant-qr
-  profiles:
-    default: dev
-
-server:
-  port: 8080
+app:
+  jwt:
+    secret: ${APP_JWT_SECRET}
+    issuer: restaurant-qr
+    expiration-minutes: 21600
 
 logging:
   level:
-    root: INFO
+    org.flywaydb: DEBUG
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
 
 
 

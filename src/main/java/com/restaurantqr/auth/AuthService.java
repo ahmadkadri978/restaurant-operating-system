@@ -32,13 +32,17 @@ public class AuthService {
             var details = (DbUserDetails) auth.getPrincipal();
             var user = details.getDomainUser();
 
+            Long restaurantId = user.getRestaurant() != null
+                    ? user.getRestaurant().getId()
+                    : null;
+
             String token = jwtService.generateToken(
                     user.getId(),
                     user.getRole().name(),
-                    user.getRestaurant().getId()
+                    restaurantId
             );
 
-            return new LoginResponse(token, user.getRole().name(), user.getRestaurant().getId(), user.getId());
+            return new LoginResponse(token, user.getRole().name(), restaurantId, user.getId());
 
         } catch (BadCredentialsException ex) {
             // username أو password غلط (الرسالة تكون عامة)

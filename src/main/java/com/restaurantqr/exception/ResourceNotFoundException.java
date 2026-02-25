@@ -1,6 +1,8 @@
 package com.restaurantqr.exception;
 
-public class ResourceNotFoundException extends ApiException{
+import org.springframework.http.HttpStatus;
+
+public class ResourceNotFoundException extends ApiException {
     public ResourceNotFoundException(String message) {
         super(message);
     }
@@ -8,5 +10,10 @@ public class ResourceNotFoundException extends ApiException{
     @Override
     public String errorCode() {
         return "RESOURCE_NOT_FOUND";
+    }
+
+    @Override
+    public HttpStatus httpStatus() {
+        return HttpStatus.NOT_FOUND;
     }
 }

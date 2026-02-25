@@ -1,0 +1,6 @@
+ALTER TABLE users
+MODIFY role ENUM('SUPER_ADMIN','STAFF','MANAGER','KITCHEN') COLLATE utf8mb4_unicode_ci NOT NULL;
+
+ALTER TABLE users
+MODIFY restaurant_id BIGINT NULL;
+

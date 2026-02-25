@@ -2,6 +2,8 @@ package com.restaurantqr.restaurant;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
+import java.util.Optional;
 
+public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
+    Optional<Restaurant> findByCode(String code);
 }

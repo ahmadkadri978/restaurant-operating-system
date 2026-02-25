@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.time.Instant;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 
 @Service
@@ -39,15 +40,18 @@ public class JwtService {
         Instant exp = now.plusSeconds(props.expirationMinutes() * 60);
         log.info("JWT props.expirationMinutes() = {}", props.expirationMinutes());
 
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("role", role);
+        if (restaurantId != null) {
+            claims.put("restaurantId", restaurantId);
+        }
+
         return Jwts.builder()
                 .issuer(props.issuer())
                 .subject(String.valueOf(userId))
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(exp))
-                .claims(Map.of(
-                        "role", role,
-                        "restaurantId", restaurantId
-                ))
+                .claims(claims)
                 .signWith(key)
                 .compact();
     }

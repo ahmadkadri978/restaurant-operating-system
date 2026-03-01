@@ -10,13 +10,21 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+
+import org.springframework.dao.DataIntegrityViolationException;
+
+
 @Service
 public class StaffTableSessionService {
 
     private static final Logger log = LoggerFactory.getLogger(StaffTableSessionService.class);
 
-    private final RestaurantTableRepository tableRepository;
+    private static final int MAX_GENERATION_ATTEMPTS = 30;
 
+    private final RestaurantTableRepository tableRepository;
     private final SecureRandom random = new SecureRandom();
 
     public StaffTableSessionService(RestaurantTableRepository tableRepository) {
@@ -25,7 +33,11 @@ public class StaffTableSessionService {
 
     @Transactional(readOnly = true)
     public List<StaffTableDto> listTables(Long restaurantId) {
-        log.info("List tables for staff. restaurantId={}", restaurantId);
+        if (restaurantId == null) {
+            throw new BusinessRuleException("restaurantId is required");
+        }
+
+        log.debug("List tables | restaurantId={}", restaurantId);
 
         return tableRepository.findByRestaurantIdOrderByTableNumberAsc(restaurantId)
                 .stream()
@@ -41,62 +53,106 @@ public class StaffTableSessionService {
 
     @Transactional
     public OpenSessionResponse openSession(Long restaurantId, Long tableId) {
-        log.info("Open session. restaurantId={}, tableId={}", restaurantId, tableId);
+        if (restaurantId == null || tableId == null) {
+            throw new BusinessRuleException("restaurantId and tableId are required");
+        }
 
+        log.info("Open session request | restaurantId={} | tableId={}", restaurantId, tableId);
+
+        // ✅ Lock the table row to make openSession idempotent per table under concurrency
         RestaurantTable table = tableRepository.findByIdForUpdate(tableId)
                 .orElseThrow(() -> new ResourceNotFoundException("Table not found: " + tableId));
 
-        // restaurant boundary
-        if (!table.getRestaurant().getId().equals(restaurantId)) {
+        // ✅ Restaurant boundary
+        if (table.getRestaurant() == null || !table.getRestaurant().getId().equals(restaurantId)) {
             throw new ResourceNotFoundException("Table not found: " + tableId);
         }
 
-        // if already open => idempotent
+        // ✅ Idempotent: if already open, return existing code
         if (table.getSessionCode() != null) {
-            log.info("Session already open (idempotent). tableId={}, code={}", tableId, table.getSessionCode());
-            return new OpenSessionResponse(table.getId(), table.getTableNumber(), table.getSessionCode(), table.getSessionOpenedAt());
+            log.info("Session already open (idempotent) | tableId={} | code={}", tableId, table.getSessionCode());
+            return new OpenSessionResponse(
+                    table.getId(),
+                    table.getTableNumber(),
+                    table.getSessionCode(),
+                    table.getSessionOpenedAt()
+            );
         }
 
-        String code = generateUniqueCodeForRestaurant(restaurantId);
+        // ✅ Try generate+persist code; handle UNIQUE collisions safely
+        for (int attempt = 1; attempt <= MAX_GENERATION_ATTEMPTS; attempt++) {
+            String code = generate4Digits();
 
-        table.setSessionCode(code);
-        table.setSessionOpenedAt(Instant.now());
+            table.setSessionCode(code);
+            table.setSessionOpenedAt(Instant.now());
 
-        // managed entity, save optional
-        tableRepository.save(table);
+            try {
+                // save+flush ensures DB constraint is checked NOW (inside this method)
+                tableRepository.saveAndFlush(table);
 
-        return new OpenSessionResponse(table.getId(), table.getTableNumber(), table.getSessionCode(), table.getSessionOpenedAt());
+                log.info("Session opened | tableId={} | attempt={} | code={}", tableId, attempt, code);
+
+                return new OpenSessionResponse(
+                        table.getId(),
+                        table.getTableNumber(),
+                        table.getSessionCode(),
+                        table.getSessionOpenedAt()
+                );
+
+            } catch (DataIntegrityViolationException ex) {
+                // Likely UNIQUE(restaurant_id, session_code) collision
+                log.warn("Session code collision | restaurantId={} | tableId={} | attempt={} | code={}",
+                        restaurantId, tableId, attempt, code);
+
+                // reset in-memory values so next attempt is clean
+                table.setSessionCode(null);
+                table.setSessionOpenedAt(null);
+
+                // continue retry
+            }
+        }
+
+        throw new BusinessRuleException("Unable to generate session code. Please retry.");
     }
 
     @Transactional
     public CloseSessionResponse closeSession(Long restaurantId, Long tableId) {
-        log.info("Close session. restaurantId={}, tableId={}", restaurantId, tableId);
+        if (restaurantId == null || tableId == null) {
+            throw new BusinessRuleException("restaurantId and tableId are required");
+        }
 
+        log.info("Close session request | restaurantId={} | tableId={}", restaurantId, tableId);
+
+        // ✅ Lock row to avoid concurrent open/close races
         RestaurantTable table = tableRepository.findByIdForUpdate(tableId)
                 .orElseThrow(() -> new ResourceNotFoundException("Table not found: " + tableId));
 
-        if (!table.getRestaurant().getId().equals(restaurantId)) {
+        // ✅ Restaurant boundary
+        if (table.getRestaurant() == null || !table.getRestaurant().getId().equals(restaurantId)) {
             throw new ResourceNotFoundException("Table not found: " + tableId);
         }
 
+        // ✅ Idempotent: already closed
+        if (table.getSessionCode() == null) {
+            log.info("Session already closed (idempotent) | tableId={}", tableId);
+            return new CloseSessionResponse(table.getId(), true);
+        }
+
+        // ✅ Close session
         table.setSessionCode(null);
         table.setSessionOpenedAt(null);
-        tableRepository.save(table);
+
+        // flush now (optional but nice for deterministic behavior/logging)
+        tableRepository.saveAndFlush(table);
+
+        log.info("Session closed | tableId={}", tableId);
 
         return new CloseSessionResponse(table.getId(), true);
     }
 
-    private String generateUniqueCodeForRestaurant(Long restaurantId) {
-        // 10 tries is enough for small restaurants
-        for (int i = 0; i < 10; i++) {
-            int num = random.nextInt(10_000); // 0..9999
-            String code = String.format("%04d", num);
-
-            if (!tableRepository.existsByRestaurantIdAndSessionCode(restaurantId, code)) {
-                return code;
-            }
-        }
-        throw new BusinessRuleException("Unable to generate session code. Please retry.");
+    private String generate4Digits() {
+        int num = random.nextInt(10_000); // 0..9999
+        return String.format("%04d", num);
     }
 }
 

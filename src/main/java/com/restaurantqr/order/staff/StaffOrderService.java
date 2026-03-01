@@ -14,6 +14,15 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Instant;
+
 @Service
 public class StaffOrderService {
 
@@ -28,22 +37,18 @@ public class StaffOrderService {
         this.orderItemRepository = orderItemRepository;
     }
 
-
     @Transactional(readOnly = true)
     public OrderDetailsDto getOrderDetails(Long restaurantId, Long orderId) {
-        log.info("Get order details. restaurantId={}, orderId={}", restaurantId, orderId);
-
-        CustomerOrder order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
-
-        // ✅ Security boundary: order must belong to same restaurant
-        if (!order.getRestaurant().getId().equals(restaurantId)) {
-            log.warn("Order access denied by restaurant boundary. orderId={}, requestedRestaurantId={}, actualRestaurantId={}",
-                    orderId, restaurantId, order.getRestaurant().getId());
-            throw new ResourceNotFoundException("Order not found: " + orderId);
+        if (restaurantId == null || orderId == null) {
+            throw new BusinessRuleException("restaurantId and orderId are required");
         }
 
-        var items = orderItemRepository.findByOrderId(orderId).stream()
+        log.info("Get order details | restaurantId={} | orderId={}", restaurantId, orderId);
+
+        CustomerOrder order = orderRepository.findByIdAndRestaurantIdFetchTable(restaurantId, orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
+
+        var items = orderItemRepository.findByOrderIdWithMenuItem(orderId).stream()
                 .map(oi -> new OrderItemDto(
                         oi.getMenuItem().getId(),
                         oi.getMenuItem().getName(),
@@ -51,7 +56,6 @@ public class StaffOrderService {
                         oi.getUnitPrice(),
                         oi.getTotalPrice(),
                         oi.getNote()
-
                 ))
                 .toList();
 
@@ -65,48 +69,48 @@ public class StaffOrderService {
                 order.getStatus()
         );
     }
+
     @Transactional
     public OrderStatusResponse markSentToKitchen(Long restaurantId, Long orderId) {
-        log.info("Mark order as SENT_TO_KITCHEN. restaurantId={}, orderId={}", restaurantId, orderId);
-
-        CustomerOrder order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
-
-        // Restaurant boundary
-        if (!order.getRestaurant().getId().equals(restaurantId)) {
-            log.warn("Order not found under restaurant boundary. orderId={}, requestedRestaurantId={}, actualRestaurantId={}",
-                    orderId, restaurantId, order.getRestaurant().getId());
-            throw new ResourceNotFoundException("Order not found: " + orderId);
+        if (restaurantId == null || orderId == null) {
+            throw new BusinessRuleException("restaurantId and orderId are required");
         }
 
+        log.info("Mark SENT_TO_KITCHEN | restaurantId={} | orderId={}", restaurantId, orderId);
+
+        CustomerOrder order = orderRepository.findByIdAndRestaurantIdForUpdate(restaurantId, orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
+
+        // Idempotent
         if (order.getStatus() == OrderStatus.SENT_TO_KITCHEN) {
-            log.info("Order already SENT_TO_KITCHEN. orderId={}", orderId);
-            return new OrderStatusResponse(order.getId(), order.getStatus(), order.getSentToKitchenAt(),null,null);
+            return new OrderStatusResponse(order.getId(), order.getStatus(), order.getSentToKitchenAt(), null, null);
+        }
+
+        // Optional stricter rule: only NEW -> SENT_TO_KITCHEN
+        if (order.getStatus() != OrderStatus.NEW) {
+            throw new BusinessRuleException("Only NEW orders can be sent to kitchen");
         }
 
         order.setStatus(OrderStatus.SENT_TO_KITCHEN);
         order.setSentToKitchenAt(Instant.now());
 
-        // save not required if managed entity, but explicit is OK
+        // save() optional because managed+transactional, but keep explicit for clarity
         orderRepository.save(order);
 
-        log.info("Order marked as SENT_TO_KITCHEN. orderId={}", orderId);
-        return new OrderStatusResponse(order.getId(), order.getStatus(), order.getSentToKitchenAt(),null,null);
+        return new OrderStatusResponse(order.getId(), order.getStatus(), order.getSentToKitchenAt(), null, null);
     }
+
     @Transactional
     public OrderStatusResponse markDone(Long restaurantId, Long orderId) {
-
-        log.info("Mark order DONE. restaurantId={}, orderId={}", restaurantId, orderId);
-
-        CustomerOrder order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
-
-        // Restaurant boundary
-        if (!order.getRestaurant().getId().equals(restaurantId)) {
-            throw new ResourceNotFoundException("Order not found: " + orderId);
+        if (restaurantId == null || orderId == null) {
+            throw new BusinessRuleException("restaurantId and orderId are required");
         }
 
-        // Idempotent
+        log.info("Mark DONE | restaurantId={} | orderId={}", restaurantId, orderId);
+
+        CustomerOrder order = orderRepository.findByIdAndRestaurantIdForUpdate(restaurantId, orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
+
         if (order.getStatus() == OrderStatus.DONE) {
             return new OrderStatusResponse(
                     order.getId(),
@@ -117,8 +121,6 @@ public class StaffOrderService {
             );
         }
 
-        // Business rule (recommended)
-        // We usually allow DONE only if it was sent to kitchen first.
         if (order.getStatus() != OrderStatus.SENT_TO_KITCHEN) {
             throw new BusinessRuleException("Order must be SENT_TO_KITCHEN before marking DONE");
         }
@@ -136,20 +138,18 @@ public class StaffOrderService {
                 order.getCancelledAt()
         );
     }
+
     @Transactional
     public OrderStatusResponse markCancelled(Long restaurantId, Long orderId) {
-
-        log.info("Mark order CANCELLED. restaurantId={}, orderId={}", restaurantId, orderId);
-
-        CustomerOrder order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
-
-        // Restaurant boundary
-        if (!order.getRestaurant().getId().equals(restaurantId)) {
-            throw new ResourceNotFoundException("Order not found: " + orderId);
+        if (restaurantId == null || orderId == null) {
+            throw new BusinessRuleException("restaurantId and orderId are required");
         }
 
-        // Idempotent
+        log.info("Mark CANCELLED | restaurantId={} | orderId={}", restaurantId, orderId);
+
+        CustomerOrder order = orderRepository.findByIdAndRestaurantIdForUpdate(restaurantId, orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
+
         if (order.getStatus() == OrderStatus.CANCELLED) {
             return new OrderStatusResponse(
                     order.getId(),
@@ -160,8 +160,6 @@ public class StaffOrderService {
             );
         }
 
-        // Business rule (recommended)
-        // We usually allow CANCELLED only if it was NEW .
         if (order.getStatus() != OrderStatus.NEW) {
             throw new BusinessRuleException("Order must be NEW before marking CANCELLED");
         }
@@ -185,22 +183,16 @@ public class StaffOrderService {
                                                    OrderStatus status,
                                                    Pageable pageable,
                                                    Instant since) {
+        if (restaurantId == null || status == null || pageable == null) {
+            throw new BusinessRuleException("restaurantId, status, pageable are required");
+        }
 
-        log.info("Get orders by status. restaurantId={}, status={}, page={}, size={}, since={}",
+        log.debug("Get orders by status | restaurantId={} | status={} | page={} | size={} | since={}",
                 restaurantId, status, pageable.getPageNumber(), pageable.getPageSize(), since);
 
-        Page<CustomerOrder> pageResult;
-
-        if (since == null) {
-            pageResult = orderRepository.findByRestaurantIdAndStatusOrderByCreatedAtDesc(
-                    restaurantId, status, pageable
-            );
-        } else {
-            // option 1: Page
-            pageResult = orderRepository.findByRestaurantIdAndStatusAndCreatedAtAfterOrderByCreatedAtDesc(
-                    restaurantId, status, since, pageable
-            );
-        }
+        Page<CustomerOrder> pageResult = (since == null)
+                ? orderRepository.findPageByRestaurantAndStatusFetchTable(restaurantId, status, pageable)
+                : orderRepository.findPageByRestaurantAndStatusAndCreatedAtAfterFetchTable(restaurantId, status, since, pageable);
 
         return pageResult.map(o -> new OrderSummaryDto(
                 o.getId(),
@@ -210,7 +202,5 @@ public class StaffOrderService {
                 o.getStatus()
         ));
     }
-
-
 }
 

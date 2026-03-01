@@ -8,13 +8,13 @@ import java.util.List;
 
 public interface ServiceCallRepository extends JpaRepository<ServiceCall, Long> {
 
-    // الوضع الحالي (initial load)
+
     List<ServiceCall> findByRestaurantIdAndCreatedAtAfterOrderByCreatedAtDesc(
             Long restaurantId,
             Instant threshold
     );
 
-    // منع spam (موجود عندك)
+
     boolean existsByTableIdAndCreatedAtAfter(Long tableId, Instant threshold);
 
     //  Polling: get new service calls

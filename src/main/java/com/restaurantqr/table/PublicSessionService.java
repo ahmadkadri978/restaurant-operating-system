@@ -1,8 +1,14 @@
 package com.restaurantqr.table;
 
+import com.restaurantqr.exception.BusinessRuleException;
 import com.restaurantqr.exception.InvalidSessionCodeException;
 import com.restaurantqr.exception.ResourceNotFoundException;
 import org.slf4j.*;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,12 +23,19 @@ public class PublicSessionService {
         this.tableRepository = tableRepository;
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public void verifySessionOrThrow(String qrToken, String code) {
-        RestaurantTable table = tableRepository.findByQrTokenForUpdate(qrToken)
+        if (qrToken == null || qrToken.isBlank()) {
+            throw new BusinessRuleException("qrToken is required");
+        }
+        if (code == null || code.isBlank()) {
+            throw new InvalidSessionCodeException("Invalid session code");
+        }
+
+        RestaurantTable table = tableRepository.findActiveByQrTokenFetchRestaurant(qrToken)
                 .orElseThrow(() -> new ResourceNotFoundException("Table not found"));
 
-        if (!table.isActive() || !table.getRestaurant().isActive()) {
+        if (!table.isActive() || table.getRestaurant() == null || !table.getRestaurant().isActive()) {
             throw new ResourceNotFoundException("Table not found");
         }
 
@@ -35,7 +48,7 @@ public class PublicSessionService {
             throw new InvalidSessionCodeException("Invalid session code");
         }
 
-        log.info("Session verified. tableId={}, qrToken={}", table.getId(), qrToken);
+        log.debug("Session verified | tableId={} | qrToken={}", table.getId(), qrToken);
     }
 }
 

@@ -69,4 +69,17 @@ public interface RestaurantTableRepository extends JpaRepository<RestaurantTable
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select t from RestaurantTable t where t.id = :id")
     Optional<RestaurantTable> findByIdForUpdate(@Param("id") Long id);
+
+    // ==================== OWNER DASHBOARD QUERIES ====================
+
+    /**
+     * Count active tables for restaurant.
+     */
+    @Query("""
+        select count(t)
+        from RestaurantTable t
+        where t.restaurant.id = :restaurantId
+          and t.isActive = true
+    """)
+    Long countActiveTablesByRestaurant(@Param("restaurantId") Long restaurantId);
 }

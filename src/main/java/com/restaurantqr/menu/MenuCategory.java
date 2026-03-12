@@ -3,7 +3,7 @@ package com.restaurantqr.menu;
 
 import com.restaurantqr.restaurant.Restaurant;
 import jakarta.persistence.*;
-import lombok.*;
+
 
 import java.time.Instant;
 

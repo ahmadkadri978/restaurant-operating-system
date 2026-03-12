@@ -54,10 +54,11 @@ public class ServiceCallPublicController {
     @PostMapping("/tables/{qrToken}/service-calls")
     public ResponseEntity<ServiceCallResponse> createCall(
             @PathVariable String qrToken,
+            @RequestParam String code,
             @Valid @RequestBody CreateServiceCallRequest request
     ) {
-        log.info("POST /public/tables/{}/service-calls", qrToken);
-        ServiceCallResponse resp = serviceCallService.createCall(qrToken, request);
+        log.info("POST /public/tables/{}/service-calls | callType={} | code=***", qrToken, request.callType());
+        ServiceCallResponse resp = serviceCallService.createCall(qrToken, code, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(resp);
     }
 }

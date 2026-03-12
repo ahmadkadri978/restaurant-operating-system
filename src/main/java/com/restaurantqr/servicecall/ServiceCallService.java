@@ -4,6 +4,7 @@ package com.restaurantqr.servicecall;
 import com.restaurantqr.exception.BusinessRuleException;
 import com.restaurantqr.exception.RateLimitException;
 import com.restaurantqr.exception.ResourceNotFoundException;
+import com.restaurantqr.table.PublicSessionService;
 import com.restaurantqr.table.RestaurantTable;
 import com.restaurantqr.table.RestaurantTableRepository;
 import org.slf4j.*;
@@ -22,17 +23,26 @@ public class ServiceCallService {
     private final RestaurantTableRepository tableRepository;
     private final ServiceCallRepository serviceCallRepository;
     private final  FcmPushService fcmPushService;
+    private final PublicSessionService publicSessionService;
 
     public ServiceCallService(RestaurantTableRepository tableRepository,
-                              ServiceCallRepository serviceCallRepository, FcmPushService fcmPushService) {
+                              ServiceCallRepository serviceCallRepository, FcmPushService fcmPushService, PublicSessionService publicSessionService) {
         this.tableRepository = tableRepository;
         this.serviceCallRepository = serviceCallRepository;
         this.fcmPushService = fcmPushService;
+        this.publicSessionService = publicSessionService;
     }
 
     @Transactional
-    public ServiceCallResponse createCall(String qrToken, CreateServiceCallRequest request) {
+    public ServiceCallResponse createCall(String qrToken, String code, CreateServiceCallRequest request) {
+
+        if (qrToken == null || qrToken.isBlank()) throw new BusinessRuleException("qrToken is required");
+        if (code == null || code.isBlank()) throw new BusinessRuleException("Session code is required");
+
         log.info("Create service call request. qrToken={}, callType={}", qrToken, request.callType());
+
+        // ✅ نفس orderService
+        publicSessionService.verifySessionOrThrow(qrToken, code);
 
         // ✅ lock table row to avoid spam race condition
         RestaurantTable table = tableRepository.findActiveByQrTokenForUpdate(qrToken)
@@ -73,8 +83,12 @@ public class ServiceCallService {
             case NARA   -> "نارا";
             default     -> "نداء";
         };
-        fcmPushService.notifyServiceCall(restaurant.getId(), table.getTableNumber(), callTypeAr);
-
+        fcmPushService.notifyServiceCall(
+                restaurant.getId(),
+                saved.getId(),
+                table.getTableNumber(),
+                callTypeAr
+        );
 
 
         return new ServiceCallResponse(

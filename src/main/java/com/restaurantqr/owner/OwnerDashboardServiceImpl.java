@@ -105,8 +105,10 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
         try {
             return ZoneId.of(zone);
         } catch (DateTimeException e) {
-            log.warn("Invalid timezone provided: {}", zone);
-            throw new BusinessRuleException("Invalid timezone: " + zone);
+            log.warn("Invalid timezone provided: {} | error: {}", zone, e.getMessage());
+            throw new BusinessRuleException(
+                    String.format("Invalid timezone '%s'. Use standard IANA timezone IDs (e.g., 'Europe/Berlin', 'America/New_York')", zone)
+            );
         }
     }
 
@@ -231,36 +233,38 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
     private OverviewDto queryOverviewStatistics(Long restaurantId, Instant startDate, Instant endDate) {
         log.debug("Querying overview statistics | restaurantId={}", restaurantId);
 
-        // Count total orders (all statuses)
+        // Count total orders (all statuses) - null-safe
         Long totalOrders = orderRepository.countOrdersByRestaurantAndDateRange(
                 restaurantId, startDate, endDate
         );
+        totalOrders = (totalOrders != null) ? totalOrders : 0L;
 
-        // Count orders by each status
+        // Count orders by each status - null-safe
         Long newOrders = orderRepository.countOrdersByRestaurantAndStatusAndDateRange(
                 restaurantId, OrderStatus.NEW, startDate, endDate
         );
+        newOrders = (newOrders != null) ? newOrders : 0L;
 
         Long sentToKitchenOrders = orderRepository.countOrdersByRestaurantAndStatusAndDateRange(
                 restaurantId, OrderStatus.SENT_TO_KITCHEN, startDate, endDate
         );
+        sentToKitchenOrders = (sentToKitchenOrders != null) ? sentToKitchenOrders : 0L;
 
         Long doneOrders = orderRepository.countOrdersByRestaurantAndStatusAndDateRange(
                 restaurantId, OrderStatus.DONE, startDate, endDate
         );
+        doneOrders = (doneOrders != null) ? doneOrders : 0L;
 
         Long cancelledOrders = orderRepository.countOrdersByRestaurantAndStatusAndDateRange(
                 restaurantId, OrderStatus.CANCELLED, startDate, endDate
         );
+        cancelledOrders = (cancelledOrders != null) ? cancelledOrders : 0L;
 
-        // Sum gross revenue (excluding CANCELLED orders)
+        // Sum gross revenue (excluding CANCELLED orders) - null-safe
         BigDecimal grossRevenue = orderRepository.sumRevenueByRestaurantAndDateRange(
                 restaurantId, startDate, endDate
         );
-        // Ensure non-null
-        if (grossRevenue == null) {
-            grossRevenue = BigDecimal.ZERO;
-        }
+        grossRevenue = (grossRevenue != null) ? grossRevenue : BigDecimal.ZERO;
 
         // Calculate average order value (revenue / done orders)
         BigDecimal averageOrderValue = BigDecimal.ZERO;
@@ -288,18 +292,21 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
                     .setScale(2, RoundingMode.HALF_UP);
         }
 
-        // Count active tables in restaurant (not time-scoped)
+        // Count active tables in restaurant (not time-scoped) - null-safe
         Long activeTablesCount = tableRepository.countActiveTablesByRestaurant(restaurantId);
+        activeTablesCount = (activeTablesCount != null) ? activeTablesCount : 0L;
 
-        // Count tables that have orders in this period
+        // Count tables that have orders in this period - null-safe
         Long tablesWithOrdersCount = orderRepository.countDistinctTablesWithOrders(
                 restaurantId, startDate, endDate
         );
+        tablesWithOrdersCount = (tablesWithOrdersCount != null) ? tablesWithOrdersCount : 0L;
 
-        // Count service calls in period
+        // Count service calls in period - null-safe
         Long serviceCallsCount = serviceCallRepository.countServiceCallsByRestaurantAndDateRange(
                 restaurantId, startDate, endDate
         );
+        serviceCallsCount = (serviceCallsCount != null) ? serviceCallsCount : 0L;
 
         log.debug("Overview calculated | totalOrders={} | doneOrders={} | cancelledOrders={} | grossRevenue={} | completionRate={}% | cancellationRate={}%",
                 totalOrders, doneOrders, cancelledOrders, grossRevenue, completionRate, cancellationRate);
@@ -322,6 +329,7 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
 
     /**
      * Query revenue trend based on period.
+     * Returns time-bucketed revenue data with zero-safe handling.
      */
     private List<RevenuePointDto> queryRevenueTrend(
             Long restaurantId,
@@ -335,16 +343,31 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
 
         switch (period) {
             case DAY -> {
-                // Hourly aggregation for DAY
-                projections = orderRepository.findRevenueTrendByHour(restaurantId, startDate, endDate);
+                // Hourly aggregation for DAY (24 potential buckets)
+                log.debug("Fetching hourly revenue trend for DAY period");
+                projections = orderRepository.findRevenueTrendByHour(
+                        restaurantId, 
+                        startDate.getEpochSecond(), 
+                        endDate.getEpochSecond()
+                );
             }
             case WEEK, MONTH -> {
-                // Daily aggregation for WEEK and MONTH
-                projections = orderRepository.findRevenueTrendByDay(restaurantId, startDate, endDate);
+                // Daily aggregation for WEEK (7 buckets) and MONTH (28-31 buckets)
+                log.debug("Fetching daily revenue trend for {} period", period);
+                projections = orderRepository.findRevenueTrendByDay(
+                        restaurantId, 
+                        startDate.getEpochSecond(), 
+                        endDate.getEpochSecond()
+                );
             }
             case YEAR -> {
-                // Monthly aggregation for YEAR
-                projections = orderRepository.findRevenueTrendByMonth(restaurantId, startDate, endDate);
+                // Monthly aggregation for YEAR (12 buckets)
+                log.debug("Fetching monthly revenue trend for YEAR period");
+                projections = orderRepository.findRevenueTrendByMonth(
+                        restaurantId, 
+                        startDate.getEpochSecond(), 
+                        endDate.getEpochSecond()
+                );
             }
             default -> {
                 log.warn("Unsupported period for revenue trend: {}", period);
@@ -352,14 +375,26 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
             }
         }
 
-        // Convert projections to DTOs
-        return projections.stream()
+        // Handle null or empty results
+        if (projections == null || projections.isEmpty()) {
+            log.debug("No revenue trend data found for period {} | restaurantId={}", period, restaurantId);
+            return new ArrayList<>();
+        }
+
+        // Convert projections to DTOs with null-safe handling
+        // Convert Unix timestamp (Long seconds) to Instant
+        List<RevenuePointDto> result = projections.stream()
+                .filter(p -> p != null && p.getTimestamp() != null)
                 .map(p -> new RevenuePointDto(
-                        p.getTimestamp(),
-                        p.getRevenue(),
-                        p.getOrderCount()
+                        Instant.ofEpochSecond(p.getTimestamp()),  // Convert Long to Instant
+                        p.getRevenue() != null ? p.getRevenue() : BigDecimal.ZERO,
+                        p.getOrderCount() != null ? p.getOrderCount() : 0L
                 ))
                 .toList();
+
+        log.debug("Revenue trend returned {} data points for {} period", result.size(), period);
+
+        return result;
     }
 
     /**
@@ -368,7 +403,15 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
     private List<StatusCountDto> queryOrdersByStatus(Long restaurantId, Instant startDate, Instant endDate) {
         log.debug("Querying orders by status | restaurantId={}", restaurantId);
 
-        return orderRepository.countOrdersGroupedByStatus(restaurantId, startDate, endDate);
+        List<StatusCountDto> result = orderRepository.countOrdersGroupedByStatus(restaurantId, startDate, endDate);
+        
+        // Handle null result
+        if (result == null) {
+            log.debug("No orders by status data found | restaurantId={}", restaurantId);
+            return new ArrayList<>();
+        }
+
+        return result;
     }
 
     /**
@@ -378,7 +421,9 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
         log.debug("Querying top items by quantity | restaurantId={}", restaurantId);
 
         Pageable topN = PageRequest.of(0, TOP_ITEMS_LIMIT);
-        return orderItemRepository.findTopItemsByQuantity(restaurantId, startDate, endDate, topN);
+        List<TopItemDto> result = orderItemRepository.findTopItemsByQuantity(restaurantId, startDate, endDate, topN);
+        
+        return result != null ? result : new ArrayList<>();
     }
 
     /**
@@ -388,7 +433,9 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
         log.debug("Querying top items by revenue | restaurantId={}", restaurantId);
 
         Pageable topN = PageRequest.of(0, TOP_ITEMS_LIMIT);
-        return orderItemRepository.findTopItemsByRevenue(restaurantId, startDate, endDate, topN);
+        List<TopItemDto> result = orderItemRepository.findTopItemsByRevenue(restaurantId, startDate, endDate, topN);
+        
+        return result != null ? result : new ArrayList<>();
     }
 
     /**
@@ -398,7 +445,9 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
         log.debug("Querying top tables | restaurantId={}", restaurantId);
 
         Pageable topN = PageRequest.of(0, TOP_TABLES_LIMIT);
-        return orderRepository.findTopTablesByOrderCount(restaurantId, startDate, endDate, topN);
+        List<TopTableDto> result = orderRepository.findTopTablesByOrderCount(restaurantId, startDate, endDate, topN);
+        
+        return result != null ? result : new ArrayList<>();
     }
 
     /**
@@ -411,27 +460,44 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
     ) {
         log.debug("Querying service calls by type | restaurantId={}", restaurantId);
 
-        return serviceCallRepository.countServiceCallsGroupedByType(restaurantId, startDate, endDate);
+        List<ServiceCallTypeCountDto> result = serviceCallRepository.countServiceCallsGroupedByType(
+                restaurantId, startDate, endDate
+        );
+        
+        return result != null ? result : new ArrayList<>();
     }
 
     /**
      * Query peak hours from order timestamps.
+     * Returns hours sorted by order count (descending).
      */
     private List<PeakHourDto> queryPeakHours(Long restaurantId, Instant startDate, Instant endDate) {
         log.debug("Querying peak hours | restaurantId={}", restaurantId);
 
         List<PeakHourProjection> projections = orderRepository.findPeakHoursByOrderCount(
-                restaurantId, startDate, endDate
+                restaurantId, startDate.getEpochSecond(), endDate.getEpochSecond()
         );
 
-        // Convert projections to DTOs
-        return projections.stream()
+        // Handle null or empty results
+        if (projections == null || projections.isEmpty()) {
+            log.debug("No peak hours data found | restaurantId={}", restaurantId);
+            return new ArrayList<>();
+        }
+
+        // Convert projections to DTOs with null-safe handling
+        // Already sorted by orderCount DESC from query
+        List<PeakHourDto> result = projections.stream()
+                .filter(p -> p != null && p.getHour() != null)
                 .map(p -> new PeakHourDto(
                         p.getHour(),
-                        p.getOrderCount(),
-                        p.getRevenue()
+                        p.getOrderCount() != null ? p.getOrderCount() : 0L,
+                        p.getRevenue() != null ? p.getRevenue() : BigDecimal.ZERO
                 ))
                 .toList();
+
+        log.debug("Peak hours returned {} hours | restaurantId={}", result.size(), restaurantId);
+
+        return result;
     }
 }
 

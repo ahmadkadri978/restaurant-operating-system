@@ -1,13 +1,13 @@
 package com.restaurantqr.owner;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 
 /**
  * Projection interface for revenue trend data points.
+ * Timestamp is returned as Unix timestamp (seconds since epoch) for reliable MySQL compatibility.
  */
 public interface RevenueTrendProjection {
-    Instant getTimestamp();
+    Long getTimestamp();  // Unix timestamp in seconds
     BigDecimal getRevenue();
     Long getOrderCount();
 }

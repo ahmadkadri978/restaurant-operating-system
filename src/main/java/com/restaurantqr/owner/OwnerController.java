@@ -105,7 +105,17 @@ public class OwnerController {
             @RequestParam(defaultValue = "Europe/Berlin")
             String zone
     ) {
+        // Defensive null checks (should never happen with @PreAuthorize, but safety first)
+        if (authentication == null || authentication.getPrincipal() == null) {
+            throw new IllegalStateException("Authentication principal is required");
+        }
+
         AuthPrincipal principal = (AuthPrincipal) authentication.getPrincipal();
+
+        // Validate principal has restaurantId
+        if (principal.restaurantId() == null) {
+            throw new IllegalStateException("Restaurant ID not found in authentication principal");
+        }
 
         // Service call with restaurantId from JWT principal only
         // Service handles null anchorDate and zone validation

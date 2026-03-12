@@ -11,9 +11,10 @@ VALUES ('REST-1', 'rabwa Restaurant', 1, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6));
 SET @restaurant_id = LAST_INSERT_ID();
 
 -- =====================================
--- (B) Create STAFF user for this restaurant
+-- (B) Create users for this restaurant
 -- NOTE: password_hash should be generated inside your Spring Boot app (BCrypt)
 -- =====================================
+-- STAFF user (password: password123)
 INSERT INTO users (username, password_hash, role, is_active, restaurant_id, created_at, updated_at)
 VALUES (
   'staff_rest001',
@@ -26,6 +27,20 @@ VALUES (
 );
 
 SET @staff_user_id = LAST_INSERT_ID();
+
+-- OWNER user (password: owner123)
+INSERT INTO users (username, password_hash, role, is_active, restaurant_id, created_at, updated_at)
+VALUES (
+  'owner_rest001',
+  '$2a$12$Kx6BjcZQGfXqMRq9Y7sX6OqP8qKzVJ8vN7nH5jY6wQ8pR7tS9uV8K',
+  'OWNER',
+  1,
+  @restaurant_id,
+  UTC_TIMESTAMP(6),
+  UTC_TIMESTAMP(6)
+);
+
+SET @owner_user_id = LAST_INSERT_ID();
 
 -- =====================================
 -- (C) Seed default menu categories
@@ -108,6 +123,7 @@ VALUES
 SELECT
   @restaurant_id    AS restaurant_id,
   @staff_user_id    AS staff_user_id,
+  @owner_user_id    AS owner_user_id,
   @cat_drinks_id    AS drinks_category_id,
   @cat_meals_id     AS meals_category_id,
   @cat_desserts_id  AS desserts_category_id;

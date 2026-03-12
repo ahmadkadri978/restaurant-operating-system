@@ -19,7 +19,7 @@ import com.restaurantqr.user.UserRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.math.BigDecimal;
@@ -38,7 +38,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
-@Configuration @Profile("dev")
+@Configuration
+@ConditionalOnProperty(name = "app.demo.seed", havingValue = "true")
 public class DataSeeder1 {
     @Bean
     CommandLineRunner seedData(
@@ -54,8 +55,16 @@ public class DataSeeder1 {
     ) {
         return args -> {
 
-            // ✅ Seed once
-            if (restaurantRepository.count() > 0) return;
+            // ✅ Existing DB: ensure demo owner exists for the first restaurant
+            if (restaurantRepository.count() > 0) {
+                restaurantRepository.findAll().stream().findFirst().ifPresent(existingRestaurant -> {
+                    if (userRepository.findByUsername("owner1").isEmpty()) {
+                        userRepository.save(makeUser("owner1", "123456", Role.OWNER, existingRestaurant, passwordEncoder));
+                        System.out.println("➡ OWNER login created for existing data: owner1 / 123456");
+                    }
+                });
+                return;
+            }
 
             // =========================
             // 1) Restaurant
@@ -67,8 +76,9 @@ public class DataSeeder1 {
             restaurantRepository.save(restaurant);
 
             // =========================
-            // 2) Users (STAFF only + optional manager)
+            // 2) Users
             // =========================
+            userRepository.save(makeUser("owner1", "123456", Role.OWNER, restaurant, passwordEncoder));
             userRepository.save(makeUser("staff1", "123456", Role.STAFF, restaurant, passwordEncoder));
             userRepository.save(makeUser("staff2", "123456", Role.STAFF, restaurant, passwordEncoder));
 
@@ -197,6 +207,7 @@ public class DataSeeder1 {
             }
 
             System.out.println("✅ Seeded: 1 restaurant + users + 20 tables + 20 orders + 20 service calls");
+            System.out.println("➡ OWNER login: owner1 / 123456");
             System.out.println("➡ STAFF login: staff1 / 123456");
             System.out.println("➡ Try menu: GET /api/v1/public/tables/DEMO-TABLE-1/menu");
         };

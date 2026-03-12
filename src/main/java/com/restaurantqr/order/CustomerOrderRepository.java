@@ -225,71 +225,71 @@ public interface CustomerOrderRepository extends JpaRepository<CustomerOrder, Lo
 
     /**
      * Get revenue trend grouped by hour (for DAY period).
-     * MySQL native query using DATE_FORMAT to extract hour.
+     * Returns Unix timestamp (seconds since epoch) as Long for reliable conversion.
      */
     @Query(value = """
         SELECT 
-            DATE_FORMAT(FROM_UNIXTIME(UNIX_TIMESTAMP(created_at)), '%Y-%m-%d %H:00:00') as timestamp,
+            UNIX_TIMESTAMP(DATE_FORMAT(created_at, '%Y-%m-%d %H:00:00')) as timestamp,
             COALESCE(SUM(total_amount), 0) as revenue,
             COUNT(*) as orderCount
         FROM customer_orders
         WHERE restaurant_id = :restaurantId
           AND status != 'CANCELLED'
-          AND created_at >= :startDate
-          AND created_at < :endDate
-        GROUP BY DATE_FORMAT(FROM_UNIXTIME(UNIX_TIMESTAMP(created_at)), '%Y-%m-%d %H:00:00')
+          AND created_at >= FROM_UNIXTIME(:startDate)
+          AND created_at < FROM_UNIXTIME(:endDate)
+        GROUP BY UNIX_TIMESTAMP(DATE_FORMAT(created_at, '%Y-%m-%d %H:00:00'))
         ORDER BY timestamp ASC
     """, nativeQuery = true)
     List<RevenueTrendProjection> findRevenueTrendByHour(
             @Param("restaurantId") Long restaurantId,
-            @Param("startDate") Instant startDate,
-            @Param("endDate") Instant endDate
+            @Param("startDate") Long startDate,
+            @Param("endDate") Long endDate
     );
 
     /**
      * Get revenue trend grouped by day (for WEEK/MONTH period).
-     * MySQL native query using DATE to group by day.
+     * Returns Unix timestamp (seconds since epoch) as Long for reliable conversion.
      */
     @Query(value = """
         SELECT 
-            DATE(created_at) as timestamp,
+            UNIX_TIMESTAMP(DATE(created_at)) as timestamp,
             COALESCE(SUM(total_amount), 0) as revenue,
             COUNT(*) as orderCount
         FROM customer_orders
         WHERE restaurant_id = :restaurantId
           AND status != 'CANCELLED'
-          AND created_at >= :startDate
-          AND created_at < :endDate
-        GROUP BY DATE(created_at)
+          AND created_at >= FROM_UNIXTIME(:startDate)
+          AND created_at < FROM_UNIXTIME(:endDate)
+        GROUP BY UNIX_TIMESTAMP(DATE(created_at))
         ORDER BY timestamp ASC
     """, nativeQuery = true)
     List<RevenueTrendProjection> findRevenueTrendByDay(
             @Param("restaurantId") Long restaurantId,
-            @Param("startDate") Instant startDate,
-            @Param("endDate") Instant endDate
+            @Param("startDate") Long startDate,
+            @Param("endDate") Long endDate
     );
 
     /**
      * Get revenue trend grouped by month (for YEAR period).
-     * MySQL native query using DATE_FORMAT to extract year-month.
+     * Returns Unix timestamp (seconds since epoch) as Long for reliable conversion.
      */
     @Query(value = """
         SELECT 
-            DATE_FORMAT(created_at, '%Y-%m-01') as timestamp,
+            UNIX_TIMESTAMP(DATE_FORMAT(created_at, '%Y-%m-01 00:00:00')) as timestamp,
             COALESCE(SUM(total_amount), 0) as revenue,
             COUNT(*) as orderCount
         FROM customer_orders
         WHERE restaurant_id = :restaurantId
           AND status != 'CANCELLED'
-          AND created_at >= :startDate
-          AND created_at < :endDate
-        GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+          AND created_at >= FROM_UNIXTIME(:startDate)
+          AND created_at < FROM_UNIXTIME(:endDate)
+        GROUP BY UNIX_TIMESTAMP(DATE_FORMAT(created_at, '%Y-%m-01 00:00:00'))
         ORDER BY timestamp ASC
     """, nativeQuery = true)
     List<RevenueTrendProjection> findRevenueTrendByMonth(
             @Param("restaurantId") Long restaurantId,
-            @Param("startDate") Instant startDate,
-            @Param("endDate") Instant endDate
+            @Param("startDate") Long startDate,
+            @Param("endDate") Long endDate
     );
 
     /**
@@ -304,14 +304,14 @@ public interface CustomerOrderRepository extends JpaRepository<CustomerOrder, Lo
         FROM customer_orders
         WHERE restaurant_id = :restaurantId
           AND status != 'CANCELLED'
-          AND created_at >= :startDate
-          AND created_at < :endDate
-        GROUP BY HOUR(created_at)
+          AND created_at >= FROM_UNIXTIME(:startDate)
+          AND created_at < FROM_UNIXTIME(:endDate)
+        GROUP BY hour
         ORDER BY orderCount DESC
     """, nativeQuery = true)
     List<PeakHourProjection> findPeakHoursByOrderCount(
             @Param("restaurantId") Long restaurantId,
-            @Param("startDate") Instant startDate,
-            @Param("endDate") Instant endDate
+            @Param("startDate") Long startDate,
+            @Param("endDate") Long endDate
     );
 }

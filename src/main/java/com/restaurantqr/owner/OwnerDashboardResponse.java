@@ -40,6 +40,9 @@ public record OwnerDashboardResponse(
         List<ServiceCallTypeCountDto> serviceCallsByType,
 
         @Schema(description = "Peak hours by order count")
-        List<PeakHourDto> peakHours
+        List<PeakHourDto> peakHours,
+
+        @Schema(description = "Table session analytics")
+        SessionAnalyticsDto sessionAnalytics
 ) {}
 

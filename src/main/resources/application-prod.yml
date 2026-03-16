@@ -25,6 +25,10 @@ app:
     secret: ${APP_JWT_SECRET}
     issuer: restaurant-qr
     expiration-minutes: 21600
+  upload:
+    dir: ${APP_UPLOAD_DIR:/srv/orders-qr/uploads}
+    max-file-size: 5MB
+    allowed-extensions: jpg,jpeg,png,gif,webp
 
 logging:
   level:

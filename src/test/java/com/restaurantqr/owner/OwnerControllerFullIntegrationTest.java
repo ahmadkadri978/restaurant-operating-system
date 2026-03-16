@@ -9,6 +9,7 @@ import com.restaurantqr.restaurant.Restaurant;
 import com.restaurantqr.restaurant.RestaurantRepository;
 import com.restaurantqr.servicecall.ServiceCallRepository;
 import com.restaurantqr.table.RestaurantTableRepository;
+import com.restaurantqr.table.TableSessionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -58,6 +59,9 @@ class OwnerControllerFullIntegrationTest {
     @Mock
     private RestaurantTableRepository tableRepository;
 
+    @Mock
+    private TableSessionRepository sessionRepository;
+
     private Restaurant testRestaurant;
     private Long restaurantId;
     private Authentication authentication;
@@ -75,7 +79,8 @@ class OwnerControllerFullIntegrationTest {
                 orderRepository,
                 orderItemRepository,
                 serviceCallRepository,
-                tableRepository
+                tableRepository,
+                sessionRepository
         );
         
         // Create controller
@@ -537,8 +542,34 @@ class OwnerControllerFullIntegrationTest {
                 .thenReturn(new ArrayList<>());
         when(orderRepository.findPeakHoursByOrderCount(anyLong(), anyLong(), anyLong()))
                 .thenReturn(new ArrayList<>());
+
+        // Session analytics mocks
+        when(sessionRepository.countSessionsByRestaurantAndDateRange(anyLong(), any(Instant.class), any(Instant.class)))
+                .thenReturn(0L);
+        when(sessionRepository.countOpenSessionsByRestaurantAndDateRange(anyLong(), any(Instant.class), any(Instant.class)))
+                .thenReturn(0L);
+        when(sessionRepository.countClosedSessionsByRestaurantAndDateRange(anyLong(), any(Instant.class), any(Instant.class)))
+                .thenReturn(0L);
+        when(sessionRepository.avgSessionDurationByRestaurantAndDateRange(anyLong(), any(Instant.class), any(Instant.class)))
+                .thenReturn(null);
+        when(sessionRepository.maxSessionDurationByRestaurantAndDateRange(anyLong(), any(Instant.class), any(Instant.class)))
+                .thenReturn(null);
+        when(sessionRepository.minSessionDurationByRestaurantAndDateRange(anyLong(), any(Instant.class), any(Instant.class)))
+                .thenReturn(null);
+        when(sessionRepository.sumSessionDurationByRestaurantAndDateRange(anyLong(), any(Instant.class), any(Instant.class)))
+                .thenReturn(0L);
+        when(sessionRepository.findTopTablesBySessionCount(anyLong(), any(Instant.class), any(Instant.class), any()))
+                .thenReturn(new ArrayList<>());
+        when(sessionRepository.findPeakSessionHours(anyLong(), anyLong(), anyLong()))
+                .thenReturn(new ArrayList<>());
+        when(sessionRepository.findCurrentlyOpenSessions(anyLong()))
+                .thenReturn(new ArrayList<>());
     }
 }
+
+
+
+
 
 
 

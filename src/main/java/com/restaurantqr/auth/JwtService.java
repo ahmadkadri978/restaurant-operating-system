@@ -39,15 +39,19 @@ public class JwtService {
         Instant exp = now.plusSeconds(props.expirationMinutes() * 60);
         log.info("JWT props.expirationMinutes() = {}", props.expirationMinutes());
 
-        return Jwts.builder()
+        var claimsBuilder = Jwts.builder()
                 .issuer(props.issuer())
                 .subject(String.valueOf(userId))
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(exp))
-                .claims(Map.of(
-                        "role", role,
-                        "restaurantId", restaurantId
-                ))
+                .claim("role", role);
+
+        // restaurantId can be null for ADMIN users (system-wide)
+        if (restaurantId != null) {
+            claimsBuilder.claim("restaurantId", restaurantId);
+        }
+
+        return claimsBuilder
                 .signWith(key)
                 .compact();
     }

@@ -72,7 +72,9 @@ class OwnerControllerCompleteTest {
                 new ArrayList<>(),
                 new ArrayList<>(),
                 new ArrayList<>(),
-                new ArrayList<>()
+                new ArrayList<>(),
+                new SessionAnalyticsDto(0L, 0L, 0L, null, null, null, 0L,
+                        new ArrayList<>(), new ArrayList<>(), new ArrayList<>())
         );
     }
 
@@ -557,7 +559,8 @@ class OwnerControllerCompleteTest {
                     restaurantId, longName, DashboardPeriod.DAY,
                     mockResponse.dateRange(), mockResponse.overview(),
                     new ArrayList<>(), new ArrayList<>(), new ArrayList<>(),
-                    new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>()
+                    new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(),
+                    mockResponse.sessionAnalytics()
             );
             when(dashboardService.getDashboard(any(), any(), any(), any())).thenReturn(longNameResponse);
 
@@ -582,5 +585,7 @@ class OwnerControllerCompleteTest {
         }
     }
 }
+
+
 
 

@@ -55,6 +55,18 @@ public class DataSeeder1 {
     ) {
         return args -> {
 
+            // ✅ Ensure ADMIN user exists (system-wide, no restaurant)
+            if (userRepository.findByUsername("admin").isEmpty()) {
+                User admin = new User();
+                admin.setUsername("admin");
+                admin.setPasswordHash(passwordEncoder.encode("admin123"));
+                admin.setRole(Role.ADMIN);
+                admin.setRestaurant(null); // ADMIN is system-wide
+                admin.setActive(true);
+                userRepository.save(admin);
+                System.out.println("➡ ADMIN login created: admin / admin123");
+            }
+
             // ✅ Existing DB: ensure demo owner exists for the first restaurant
             if (restaurantRepository.count() > 0) {
                 restaurantRepository.findAll().stream().findFirst().ifPresent(existingRestaurant -> {

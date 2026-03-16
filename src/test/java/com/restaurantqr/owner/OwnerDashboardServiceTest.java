@@ -8,6 +8,7 @@ import com.restaurantqr.restaurant.Restaurant;
 import com.restaurantqr.restaurant.RestaurantRepository;
 import com.restaurantqr.servicecall.ServiceCallRepository;
 import com.restaurantqr.table.RestaurantTableRepository;
+import com.restaurantqr.table.TableSessionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -44,6 +45,9 @@ class OwnerDashboardServiceTest {
 
     @Mock
     private RestaurantTableRepository tableRepository;
+
+    @Mock
+    private TableSessionRepository sessionRepository;
 
     @InjectMocks
     private OwnerDashboardServiceImpl dashboardService;
@@ -264,6 +268,18 @@ class OwnerDashboardServiceTest {
         when(orderRepository.findRevenueTrendByHour(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
         when(orderRepository.findPeakHoursByOrderCount(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
 
+        // Session analytics: null counts
+        when(sessionRepository.countSessionsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(null);
+        when(sessionRepository.countOpenSessionsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(null);
+        when(sessionRepository.countClosedSessionsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(null);
+        when(sessionRepository.avgSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(null);
+        when(sessionRepository.maxSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(null);
+        when(sessionRepository.minSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(null);
+        when(sessionRepository.sumSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(null);
+        when(sessionRepository.findTopTablesBySessionCount(any(), any(Instant.class), any(Instant.class), any())).thenReturn(new ArrayList<>());
+        when(sessionRepository.findPeakSessionHours(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
+        when(sessionRepository.findCurrentlyOpenSessions(any())).thenReturn(new ArrayList<>());
+
         // When
         OwnerDashboardResponse response = dashboardService.getDashboard(
                 restaurantId, DashboardPeriod.DAY, anchorDate, validZone
@@ -278,6 +294,14 @@ class OwnerDashboardServiceTest {
         assertThat(response.overview().averageOrderValue()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(response.overview().activeTablesCount()).isEqualTo(0L);
         assertThat(response.overview().serviceCallsCount()).isEqualTo(0L);
+
+        // Session analytics null-safe
+        assertThat(response.sessionAnalytics()).isNotNull();
+        assertThat(response.sessionAnalytics().totalSessions()).isEqualTo(0L);
+        assertThat(response.sessionAnalytics().openSessionsCount()).isEqualTo(0L);
+        assertThat(response.sessionAnalytics().closedSessionsCount()).isEqualTo(0L);
+        assertThat(response.sessionAnalytics().avgSessionDurationMinutes()).isNull();
+        assertThat(response.sessionAnalytics().totalOccupiedMinutes()).isEqualTo(0L);
     }
 
     @Test
@@ -300,6 +324,13 @@ class OwnerDashboardServiceTest {
         assertThat(response.topTables()).isEmpty();
         assertThat(response.serviceCallsByType()).isEmpty();
         assertThat(response.peakHours()).isEmpty();
+
+        // Session analytics
+        assertThat(response.sessionAnalytics()).isNotNull();
+        assertThat(response.sessionAnalytics().totalSessions()).isEqualTo(0L);
+        assertThat(response.sessionAnalytics().topTablesBySessions()).isEmpty();
+        assertThat(response.sessionAnalytics().peakSessionHours()).isEmpty();
+        assertThat(response.sessionAnalytics().currentOpenTables()).isEmpty();
     }
 
     @Test
@@ -325,6 +356,18 @@ class OwnerDashboardServiceTest {
         when(orderRepository.findRevenueTrendByHour(any(), anyLong(), anyLong())).thenReturn(null);
         when(orderRepository.findPeakHoursByOrderCount(any(), anyLong(), anyLong())).thenReturn(null);
 
+        // Session analytics: null lists
+        when(sessionRepository.countSessionsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(sessionRepository.countOpenSessionsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(sessionRepository.countClosedSessionsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(sessionRepository.avgSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(null);
+        when(sessionRepository.maxSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(null);
+        when(sessionRepository.minSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(null);
+        when(sessionRepository.sumSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(sessionRepository.findTopTablesBySessionCount(any(), any(Instant.class), any(Instant.class), any())).thenReturn(null);
+        when(sessionRepository.findPeakSessionHours(any(), anyLong(), anyLong())).thenReturn(null);
+        when(sessionRepository.findCurrentlyOpenSessions(any())).thenReturn(null);
+
         // When
         OwnerDashboardResponse response = dashboardService.getDashboard(
                 restaurantId, DashboardPeriod.DAY, anchorDate, validZone
@@ -339,6 +382,12 @@ class OwnerDashboardServiceTest {
         assertThat(response.topTables()).isNotNull().isEmpty();
         assertThat(response.serviceCallsByType()).isNotNull().isEmpty();
         assertThat(response.peakHours()).isNotNull().isEmpty();
+
+        // Session analytics null-safe
+        assertThat(response.sessionAnalytics()).isNotNull();
+        assertThat(response.sessionAnalytics().topTablesBySessions()).isNotNull().isEmpty();
+        assertThat(response.sessionAnalytics().peakSessionHours()).isNotNull().isEmpty();
+        assertThat(response.sessionAnalytics().currentOpenTables()).isNotNull().isEmpty();
     }
 
     // ==================== Restaurant Scoping Tests ====================
@@ -367,6 +416,18 @@ class OwnerDashboardServiceTest {
         verify(serviceCallRepository).countServiceCallsByRestaurantAndDateRange(eq(restaurantId), any(Instant.class), any(Instant.class));
         verify(serviceCallRepository).countServiceCallsGroupedByType(eq(restaurantId), any(Instant.class), any(Instant.class));
         verify(tableRepository).countActiveTablesByRestaurant(eq(restaurantId));
+
+        // Verify session analytics queries scoped to restaurantId
+        verify(sessionRepository).countSessionsByRestaurantAndDateRange(eq(restaurantId), any(Instant.class), any(Instant.class));
+        verify(sessionRepository).countOpenSessionsByRestaurantAndDateRange(eq(restaurantId), any(Instant.class), any(Instant.class));
+        verify(sessionRepository).countClosedSessionsByRestaurantAndDateRange(eq(restaurantId), any(Instant.class), any(Instant.class));
+        verify(sessionRepository).avgSessionDurationByRestaurantAndDateRange(eq(restaurantId), any(Instant.class), any(Instant.class));
+        verify(sessionRepository).maxSessionDurationByRestaurantAndDateRange(eq(restaurantId), any(Instant.class), any(Instant.class));
+        verify(sessionRepository).minSessionDurationByRestaurantAndDateRange(eq(restaurantId), any(Instant.class), any(Instant.class));
+        verify(sessionRepository).sumSessionDurationByRestaurantAndDateRange(eq(restaurantId), any(Instant.class), any(Instant.class));
+        verify(sessionRepository).findTopTablesBySessionCount(eq(restaurantId), any(Instant.class), any(Instant.class), any());
+        verify(sessionRepository).findPeakSessionHours(eq(restaurantId), anyLong(), anyLong());
+        verify(sessionRepository).findCurrentlyOpenSessions(eq(restaurantId));
     }
 
     // ==================== Date Range Calculation Tests ====================
@@ -414,6 +475,34 @@ class OwnerDashboardServiceTest {
         assertThat(duration.toDays()).isEqualTo(7);
     }
 
+    // ==================== Session Analytics Tests ====================
+
+    @Test
+    @DisplayName("Should return session analytics with correct values")
+    void shouldReturnSessionAnalyticsWithCorrectValues() {
+        // Given
+        setupMocksForSuccessfulDashboard();
+
+        // When
+        OwnerDashboardResponse response = dashboardService.getDashboard(
+                restaurantId, DashboardPeriod.DAY, anchorDate, validZone
+        );
+
+        // Then
+        assertThat(response.sessionAnalytics()).isNotNull();
+        SessionAnalyticsDto sa = response.sessionAnalytics();
+        assertThat(sa.totalSessions()).isEqualTo(25L);
+        assertThat(sa.openSessionsCount()).isEqualTo(3L);
+        assertThat(sa.closedSessionsCount()).isEqualTo(22L);
+        assertThat(sa.avgSessionDurationMinutes()).isEqualTo(46); // Math.round(45.5)
+        assertThat(sa.longestSessionMinutes()).isEqualTo(180);
+        assertThat(sa.shortestSessionMinutes()).isEqualTo(5);
+        assertThat(sa.totalOccupiedMinutes()).isEqualTo(1001L);
+        assertThat(sa.topTablesBySessions()).isNotNull();
+        assertThat(sa.peakSessionHours()).isNotNull();
+        assertThat(sa.currentOpenTables()).isNotNull();
+    }
+
     // ==================== Helper Methods ====================
 
     private void setupMocksForSuccessfulDashboard() {
@@ -442,6 +531,18 @@ class OwnerDashboardServiceTest {
         lenient().when(orderRepository.findRevenueTrendByDay(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
         lenient().when(orderRepository.findRevenueTrendByMonth(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
         when(orderRepository.findPeakHoursByOrderCount(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
+
+        // Mock session analytics
+        when(sessionRepository.countSessionsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(25L);
+        when(sessionRepository.countOpenSessionsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(3L);
+        when(sessionRepository.countClosedSessionsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(22L);
+        when(sessionRepository.avgSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(45.5);
+        when(sessionRepository.maxSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(180);
+        when(sessionRepository.minSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(5);
+        when(sessionRepository.sumSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(1001L);
+        when(sessionRepository.findTopTablesBySessionCount(any(), any(Instant.class), any(Instant.class), any())).thenReturn(new ArrayList<>());
+        when(sessionRepository.findPeakSessionHours(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
+        when(sessionRepository.findCurrentlyOpenSessions(any())).thenReturn(new ArrayList<>());
     }
 
     private void setupMocksWithEmptyLists() {
@@ -465,6 +566,18 @@ class OwnerDashboardServiceTest {
         lenient().when(orderRepository.findRevenueTrendByDay(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
         lenient().when(orderRepository.findRevenueTrendByMonth(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
         when(orderRepository.findPeakHoursByOrderCount(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
+
+        // Mock session analytics (empty)
+        when(sessionRepository.countSessionsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(sessionRepository.countOpenSessionsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(sessionRepository.countClosedSessionsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(sessionRepository.avgSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(null);
+        when(sessionRepository.maxSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(null);
+        when(sessionRepository.minSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(null);
+        when(sessionRepository.sumSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(sessionRepository.findTopTablesBySessionCount(any(), any(Instant.class), any(Instant.class), any())).thenReturn(new ArrayList<>());
+        when(sessionRepository.findPeakSessionHours(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
+        when(sessionRepository.findCurrentlyOpenSessions(any())).thenReturn(new ArrayList<>());
     }
 }
 

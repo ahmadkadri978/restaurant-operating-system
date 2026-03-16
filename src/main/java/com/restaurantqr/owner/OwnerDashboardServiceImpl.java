@@ -8,6 +8,8 @@ import com.restaurantqr.restaurant.Restaurant;
 import com.restaurantqr.restaurant.RestaurantRepository;
 import com.restaurantqr.servicecall.ServiceCallRepository;
 import com.restaurantqr.table.RestaurantTableRepository;
+import com.restaurantqr.table.TableSession;
+import com.restaurantqr.table.TableSessionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
@@ -33,19 +35,22 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
     private final OrderItemRepository orderItemRepository;
     private final ServiceCallRepository serviceCallRepository;
     private final RestaurantTableRepository tableRepository;
+    private final TableSessionRepository sessionRepository;
 
     public OwnerDashboardServiceImpl(
             RestaurantRepository restaurantRepository,
             CustomerOrderRepository orderRepository,
             OrderItemRepository orderItemRepository,
             ServiceCallRepository serviceCallRepository,
-            RestaurantTableRepository tableRepository
+            RestaurantTableRepository tableRepository,
+            TableSessionRepository sessionRepository
     ) {
         this.restaurantRepository = restaurantRepository;
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.serviceCallRepository = serviceCallRepository;
         this.tableRepository = tableRepository;
+        this.sessionRepository = sessionRepository;
     }
 
     @Override
@@ -209,6 +214,9 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
         // Query peak hours
         List<PeakHourDto> peakHours = queryPeakHours(restaurantId, startDate, endDate);
 
+        // Query session analytics
+        SessionAnalyticsDto sessionAnalytics = querySessionAnalytics(restaurantId, startDate, endDate);
+
         return new OwnerDashboardResponse(
                 restaurantId,
                 restaurant.getName(),
@@ -221,7 +229,8 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
                 topItemsByRevenue,
                 topTables,
                 serviceCallsByType,
-                peakHours
+                peakHours,
+                sessionAnalytics
         );
     }
 
@@ -498,6 +507,107 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
         log.debug("Peak hours returned {} hours | restaurantId={}", result.size(), restaurantId);
 
         return result;
+    }
+
+    // ==================== Session Analytics ====================
+
+    /**
+     * Query comprehensive session analytics for the owner dashboard.
+     */
+    private SessionAnalyticsDto querySessionAnalytics(Long restaurantId, Instant startDate, Instant endDate) {
+        log.debug("Querying session analytics | restaurantId={}", restaurantId);
+
+        // Count totals
+        Long totalSessions = sessionRepository.countSessionsByRestaurantAndDateRange(
+                restaurantId, startDate, endDate
+        );
+        totalSessions = (totalSessions != null) ? totalSessions : 0L;
+
+        Long openSessionsCount = sessionRepository.countOpenSessionsByRestaurantAndDateRange(
+                restaurantId, startDate, endDate
+        );
+        openSessionsCount = (openSessionsCount != null) ? openSessionsCount : 0L;
+
+        Long closedSessionsCount = sessionRepository.countClosedSessionsByRestaurantAndDateRange(
+                restaurantId, startDate, endDate
+        );
+        closedSessionsCount = (closedSessionsCount != null) ? closedSessionsCount : 0L;
+
+        // Duration statistics (closed sessions only)
+        Double avgDuration = sessionRepository.avgSessionDurationByRestaurantAndDateRange(
+                restaurantId, startDate, endDate
+        );
+        Integer avgSessionDurationMinutes = (avgDuration != null) ? (int) Math.round(avgDuration) : null;
+
+        Integer longestSessionMinutes = sessionRepository.maxSessionDurationByRestaurantAndDateRange(
+                restaurantId, startDate, endDate
+        );
+
+        Integer shortestSessionMinutes = sessionRepository.minSessionDurationByRestaurantAndDateRange(
+                restaurantId, startDate, endDate
+        );
+
+        Long totalOccupiedMinutes = sessionRepository.sumSessionDurationByRestaurantAndDateRange(
+                restaurantId, startDate, endDate
+        );
+        totalOccupiedMinutes = (totalOccupiedMinutes != null) ? totalOccupiedMinutes : 0L;
+
+        // Top tables by sessions
+        Pageable topN = PageRequest.of(0, TOP_TABLES_LIMIT);
+        List<SessionTopTableDto> topTablesBySessions = sessionRepository.findTopTablesBySessionCount(
+                restaurantId, startDate, endDate, topN
+        );
+        topTablesBySessions = (topTablesBySessions != null) ? topTablesBySessions : new ArrayList<>();
+
+        // Peak session hours
+        List<SessionPeakHourProjection> peakProjections = sessionRepository.findPeakSessionHours(
+                restaurantId, startDate.getEpochSecond(), endDate.getEpochSecond()
+        );
+        List<SessionPeakHourDto> peakSessionHours;
+        if (peakProjections == null || peakProjections.isEmpty()) {
+            peakSessionHours = new ArrayList<>();
+        } else {
+            peakSessionHours = peakProjections.stream()
+                    .filter(p -> p != null && p.getHour() != null)
+                    .map(p -> new SessionPeakHourDto(
+                            p.getHour(),
+                            p.getSessionCount() != null ? p.getSessionCount() : 0L
+                    ))
+                    .toList();
+        }
+
+        // Live snapshot: currently open tables
+        List<TableSession> openSessions = sessionRepository.findCurrentlyOpenSessions(restaurantId);
+        Instant now = Instant.now();
+        List<OpenTableInfoDto> currentOpenTables;
+        if (openSessions == null || openSessions.isEmpty()) {
+            currentOpenTables = new ArrayList<>();
+        } else {
+            currentOpenTables = openSessions.stream()
+                    .map(s -> new OpenTableInfoDto(
+                            s.getTable().getId(),
+                            s.getTable().getTableNumber(),
+                            s.getOpenedAt(),
+                            java.time.Duration.between(s.getOpenedAt(), now).toMinutes()
+                    ))
+                    .toList();
+        }
+
+        log.debug("Session analytics | totalSessions={} | open={} | closed={} | avgDuration={} | totalOccupied={}",
+                totalSessions, openSessionsCount, closedSessionsCount, avgSessionDurationMinutes, totalOccupiedMinutes);
+
+        return new SessionAnalyticsDto(
+                totalSessions,
+                openSessionsCount,
+                closedSessionsCount,
+                avgSessionDurationMinutes,
+                longestSessionMinutes,
+                shortestSessionMinutes,
+                totalOccupiedMinutes,
+                topTablesBySessions,
+                peakSessionHours,
+                currentOpenTables
+        );
     }
 }
 

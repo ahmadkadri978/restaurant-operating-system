@@ -2,19 +2,15 @@ package com.restaurantqr.table;
 
 import com.restaurantqr.exception.BusinessRuleException;
 import com.restaurantqr.exception.ResourceNotFoundException;
-import org.slf4j.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.List;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-
-import org.springframework.dao.DataIntegrityViolationException;
 
 
 @Service
@@ -25,10 +21,13 @@ public class StaffTableSessionService {
     private static final int MAX_GENERATION_ATTEMPTS = 30;
 
     private final RestaurantTableRepository tableRepository;
+    private final TableSessionRepository sessionRepository;
     private final SecureRandom random = new SecureRandom();
 
-    public StaffTableSessionService(RestaurantTableRepository tableRepository) {
+    public StaffTableSessionService(RestaurantTableRepository tableRepository,
+                                    TableSessionRepository sessionRepository) {
         this.tableRepository = tableRepository;
+        this.sessionRepository = sessionRepository;
     }
 
     @Transactional(readOnly = true)
@@ -83,12 +82,19 @@ public class StaffTableSessionService {
         for (int attempt = 1; attempt <= MAX_GENERATION_ATTEMPTS; attempt++) {
             String code = generate4Digits();
 
+            Instant now = Instant.now();
             table.setSessionCode(code);
-            table.setSessionOpenedAt(Instant.now());
+            table.setSessionOpenedAt(now);
 
             try {
                 // save+flush ensures DB constraint is checked NOW (inside this method)
                 tableRepository.saveAndFlush(table);
+
+                // ✅ Persist session history record
+                TableSession session = new TableSession(
+                        table.getRestaurant(), table, code, now
+                );
+                sessionRepository.save(session);
 
                 log.info("Session opened | tableId={} | attempt={} | code={}", tableId, attempt, code);
 
@@ -138,7 +144,16 @@ public class StaffTableSessionService {
             return new CloseSessionResponse(table.getId(), true);
         }
 
-        // ✅ Close session
+        // ✅ Persist session history before clearing live fields
+        Instant now = Instant.now();
+        sessionRepository.findOpenSessionByTableId(tableId).ifPresent(session -> {
+            session.close(now);
+            sessionRepository.save(session);
+            log.debug("Session history closed | tableId={} | sessionId={} | durationMinutes={}",
+                    tableId, session.getId(), session.getDurationMinutes());
+        });
+
+        // ✅ Clear live session fields
         table.setSessionCode(null);
         table.setSessionOpenedAt(null);
 

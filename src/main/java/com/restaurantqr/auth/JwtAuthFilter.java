@@ -33,13 +33,25 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
 
+        String token = null;
+        
+        // First, try to get token from Authorization header
         String header = request.getHeader("Authorization");
-        if (header == null || !header.startsWith("Bearer ")) {
+        if (header != null && header.startsWith("Bearer ")) {
+            token = header.substring(7);
+        }
+        
+        // If no header token and this is an SSE endpoint, try query parameter
+        // This is needed because EventSource API doesn't support custom headers
+        if (token == null && request.getRequestURI().startsWith("/api/v1/sse/")) {
+            token = request.getParameter("token");
+        }
+        
+        if (token == null) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        String token = header.substring(7);
         try {
             var jws = jwtService.parse(token);
             Claims claims = jws.getPayload();

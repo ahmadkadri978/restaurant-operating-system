@@ -6,14 +6,8 @@ import com.restaurantqr.exception.ResourceNotFoundException;
 import com.restaurantqr.order.CustomerOrder;
 import com.restaurantqr.order.CustomerOrderRepository;
 import com.restaurantqr.order.OrderItemRepository;
-import org.slf4j.*;
-import org.springframework.data.domain.*;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.Instant;
-import java.util.List;
-
+import com.restaurantqr.sse.OrderStatusPayload;
+import com.restaurantqr.sse.RestaurantEventPublisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -30,11 +24,14 @@ public class StaffOrderService {
 
     private final CustomerOrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
+    private final RestaurantEventPublisher eventPublisher;
 
     public StaffOrderService(CustomerOrderRepository orderRepository,
-                             OrderItemRepository orderItemRepository) {
+                             OrderItemRepository orderItemRepository,
+                             RestaurantEventPublisher eventPublisher) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional(readOnly = true)
@@ -97,6 +94,19 @@ public class StaffOrderService {
         // save() optional because managed+transactional, but keep explicit for clarity
         orderRepository.save(order);
 
+        // Publish SSE event for real-time updates
+        eventPublisher.publishOrderSentToKitchen(
+                restaurantId,
+                new OrderStatusPayload(
+                        order.getId(),
+                        order.getTable().getTableNumber(),
+                        order.getStatus(),
+                        order.getSentToKitchenAt(),
+                        null,
+                        null
+                )
+        );
+
         return new OrderStatusResponse(order.getId(), order.getStatus(), order.getSentToKitchenAt(), null, null);
     }
 
@@ -129,6 +139,19 @@ public class StaffOrderService {
         order.setDoneAt(Instant.now());
 
         orderRepository.save(order);
+
+        // Publish SSE event for real-time updates
+        eventPublisher.publishOrderDone(
+                restaurantId,
+                new OrderStatusPayload(
+                        order.getId(),
+                        order.getTable().getTableNumber(),
+                        order.getStatus(),
+                        order.getSentToKitchenAt(),
+                        order.getDoneAt(),
+                        null
+                )
+        );
 
         return new OrderStatusResponse(
                 order.getId(),
@@ -168,6 +191,19 @@ public class StaffOrderService {
         order.setCancelledAt(Instant.now());
 
         orderRepository.save(order);
+
+        // Publish SSE event for real-time updates
+        eventPublisher.publishOrderCancelled(
+                restaurantId,
+                new OrderStatusPayload(
+                        order.getId(),
+                        order.getTable().getTableNumber(),
+                        order.getStatus(),
+                        order.getSentToKitchenAt(),
+                        order.getDoneAt(),
+                        order.getCancelledAt()
+                )
+        );
 
         return new OrderStatusResponse(
                 order.getId(),

@@ -6,21 +6,12 @@ import com.restaurantqr.exception.ResourceNotFoundException;
 import com.restaurantqr.menu.MenuItem;
 import com.restaurantqr.menu.MenuItemRepository;
 import com.restaurantqr.order.staff.OrderStatus;
-import com.restaurantqr.order.staff.OrderStatusResponse;
 import com.restaurantqr.restaurant.Restaurant;
+import com.restaurantqr.sse.OrderCreatedPayload;
+import com.restaurantqr.sse.RestaurantEventPublisher;
 import com.restaurantqr.table.PublicSessionService;
 import com.restaurantqr.table.RestaurantTable;
 import com.restaurantqr.table.RestaurantTableRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.util.*;
-import java.util.stream.Collectors;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -46,17 +37,20 @@ public class OrderService {
     private final CustomerOrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final PublicSessionService publicSessionService;
+    private final RestaurantEventPublisher eventPublisher;
 
     public OrderService(RestaurantTableRepository tableRepository,
                         MenuItemRepository menuItemRepository,
                         CustomerOrderRepository orderRepository,
                         OrderItemRepository orderItemRepository,
-                        PublicSessionService publicSessionService) {
+                        PublicSessionService publicSessionService,
+                        RestaurantEventPublisher eventPublisher) {
         this.tableRepository = tableRepository;
         this.menuItemRepository = menuItemRepository;
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.publicSessionService = publicSessionService;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -203,6 +197,18 @@ public class OrderService {
 
         log.info("Order created | orderId={} | restaurantId={} | tableId={} | total={}",
                 finalOrder.getId(), restaurantId, table.getId(), totalAmount);
+
+        // 9) Publish SSE event for real-time updates
+        eventPublisher.publishOrderCreated(
+                restaurantId,
+                new OrderCreatedPayload(
+                        finalOrder.getId(),
+                        table.getTableNumber(),
+                        totalAmount,
+                        finalOrder.getNote(),
+                        finalOrder.getCreatedAt()
+                )
+        );
 
         return new SubmitOrderResponse(finalOrder.getId(), finalOrder.getCreatedAt(), finalOrder.getTotalAmount());
     }

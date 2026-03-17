@@ -4,6 +4,8 @@ package com.restaurantqr.servicecall;
 import com.restaurantqr.exception.BusinessRuleException;
 import com.restaurantqr.exception.RateLimitException;
 import com.restaurantqr.exception.ResourceNotFoundException;
+import com.restaurantqr.sse.RestaurantEventPublisher;
+import com.restaurantqr.sse.ServiceCallPayload;
 import com.restaurantqr.table.PublicSessionService;
 import com.restaurantqr.table.RestaurantTable;
 import com.restaurantqr.table.RestaurantTableRepository;
@@ -11,7 +13,6 @@ import org.slf4j.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.management.Notification;
 import java.time.Instant;
 import java.util.List;
 
@@ -22,15 +23,20 @@ public class ServiceCallService {
 
     private final RestaurantTableRepository tableRepository;
     private final ServiceCallRepository serviceCallRepository;
-    private final  FcmPushService fcmPushService;
+    private final FcmPushService fcmPushService;
     private final PublicSessionService publicSessionService;
+    private final RestaurantEventPublisher eventPublisher;
 
     public ServiceCallService(RestaurantTableRepository tableRepository,
-                              ServiceCallRepository serviceCallRepository, FcmPushService fcmPushService, PublicSessionService publicSessionService) {
+                              ServiceCallRepository serviceCallRepository,
+                              FcmPushService fcmPushService,
+                              PublicSessionService publicSessionService,
+                              RestaurantEventPublisher eventPublisher) {
         this.tableRepository = tableRepository;
         this.serviceCallRepository = serviceCallRepository;
         this.fcmPushService = fcmPushService;
         this.publicSessionService = publicSessionService;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -90,6 +96,16 @@ public class ServiceCallService {
                 callTypeAr
         );
 
+        // Publish SSE event for real-time updates (in addition to FCM push)
+        eventPublisher.publishServiceCall(
+                restaurant.getId(),
+                new ServiceCallPayload(
+                        saved.getId(),
+                        table.getTableNumber(),
+                        saved.getCallType(),
+                        saved.getCreatedAt()
+                )
+        );
 
         return new ServiceCallResponse(
                 saved.getId(),

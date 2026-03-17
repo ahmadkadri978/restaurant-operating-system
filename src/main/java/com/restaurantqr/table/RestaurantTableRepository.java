@@ -4,17 +4,7 @@ import jakarta.persistence.LockModeType;
 import jakarta.persistence.QueryHint;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.jpa.repository.QueryHints;
-import org.springframework.data.repository.query.Param;
-
-import java.util.List;
-import java.util.Optional;
-
-import jakarta.persistence.LockModeType;
-import jakarta.persistence.QueryHint;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.data.repository.query.Param;
@@ -82,4 +72,26 @@ public interface RestaurantTableRepository extends JpaRepository<RestaurantTable
           and t.isActive = true
     """)
     Long countActiveTablesByRestaurant(@Param("restaurantId") Long restaurantId);
+
+    // ==================== ADMIN QUERIES ====================
+
+    /**
+     * Count all tables for a restaurant
+     */
+    @Query("SELECT COUNT(t) FROM RestaurantTable t WHERE t.restaurant.id = :restaurantId")
+    int countByRestaurantId(@Param("restaurantId") Long restaurantId);
+
+    /**
+     * Delete all tables for a restaurant
+     */
+    @Modifying
+    @Query("DELETE FROM RestaurantTable t WHERE t.restaurant.id = :restaurantId")
+    void deleteByRestaurantId(@Param("restaurantId") Long restaurantId);
+
+    /**
+     * Soft delete all tables for a restaurant
+     */
+    @Modifying
+    @Query("UPDATE RestaurantTable t SET t.isActive = false WHERE t.restaurant.id = :restaurantId")
+    void deactivateByRestaurantId(@Param("restaurantId") Long restaurantId);
 }

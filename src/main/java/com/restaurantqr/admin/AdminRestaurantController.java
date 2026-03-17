@@ -1,13 +1,13 @@
 package com.restaurantqr.admin;
 
-import com.restaurantqr.admin.dto.CreateRestaurantSetupRequest;
-import com.restaurantqr.admin.dto.RestaurantSetupResponse;
+import com.restaurantqr.admin.dto.*;
 import com.restaurantqr.config.OpenApiConfig;
 import com.restaurantqr.exception.ApiErrorResponse;
 import com.restaurantqr.exception.BusinessRuleException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -203,6 +203,299 @@ public class AdminRestaurantController {
             log.error("Error processing restaurant setup with images", e);
             throw new BusinessRuleException("Failed to process request: " + e.getMessage());
         }
+    }
+
+    // ==================== LIST RESTAURANTS ====================
+
+    @Operation(
+            summary = "List all restaurants",
+            description = """
+                Returns a paginated list of all restaurants with optional search filter.
+                
+                **Query Parameters:**
+                - `search`: Search by name or code (partial match)
+                - `page`: Page number (0-based, default: 0)
+                - `size`: Page size (default: 20, max: 100)
+                - `activeOnly`: If true, only return active restaurants
+                
+                **Security:** Requires ADMIN role
+                """,
+            security = @SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Restaurants retrieved successfully",
+                    content = @Content(schema = @Schema(implementation = RestaurantListResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Missing or invalid JWT",
+                    content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "Forbidden (not ADMIN role)",
+                    content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))
+            )
+    })
+    @GetMapping("/restaurants")
+    public ResponseEntity<RestaurantListResponse> listRestaurants(
+            @Parameter(description = "Search term for name or code") @RequestParam(required = false) String search,
+            @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size") @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "Only return active restaurants") @RequestParam(defaultValue = "false") boolean activeOnly
+    ) {
+        if (size > 100) size = 100; // Limit max page size
+        RestaurantListResponse response = restaurantSetupService.listRestaurants(search, page, size, activeOnly);
+        return ResponseEntity.ok(response);
+    }
+
+    // ==================== GET RESTAURANT DETAILS ====================
+
+    @Operation(
+            summary = "Get restaurant details",
+            description = """
+                Returns complete details of a restaurant including:
+                - Basic information
+                - All menu categories with items
+                - All tables with QR tokens
+                - All users (passwords never returned)
+                
+                **Security:** Requires ADMIN role
+                """,
+            security = @SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Restaurant details retrieved successfully",
+                    content = @Content(schema = @Schema(implementation = RestaurantDetailResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Restaurant not found",
+                    content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Missing or invalid JWT",
+                    content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "Forbidden (not ADMIN role)",
+                    content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))
+            )
+    })
+    @GetMapping("/restaurants/{id}")
+    public ResponseEntity<RestaurantDetailResponse> getRestaurantDetails(
+            @Parameter(description = "Restaurant ID") @PathVariable Long id
+    ) {
+        RestaurantDetailResponse response = restaurantSetupService.getRestaurantDetails(id);
+        return ResponseEntity.ok(response);
+    }
+
+    // ==================== UPDATE RESTAURANT ====================
+
+    @Operation(
+            summary = "Update restaurant",
+            description = """
+                Updates a restaurant and all its related data.
+                
+                **Update Strategy:**
+                - Items with IDs are updated
+                - Items without IDs are created as new
+                - If `deleteOrphaned` is true, items not in the request are deleted
+                
+                **Validation:**
+                - Restaurant code must remain unique
+                - Username changes are validated for uniqueness
+                - Password updates are optional (null = keep existing)
+                
+                **Security:** Requires ADMIN role
+                """,
+            security = @SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Restaurant updated successfully",
+                    content = @Content(schema = @Schema(implementation = RestaurantDetailResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Validation error or business rule violation",
+                    content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Restaurant not found",
+                    content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Missing or invalid JWT",
+                    content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "Forbidden (not ADMIN role)",
+                    content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))
+            )
+    })
+    @PutMapping("/restaurants/{id}")
+    public ResponseEntity<RestaurantDetailResponse> updateRestaurant(
+            @Parameter(description = "Restaurant ID") @PathVariable Long id,
+            @Valid @RequestBody UpdateRestaurantRequest request
+    ) {
+        RestaurantDetailResponse response = restaurantSetupService.updateRestaurant(id, request);
+        return ResponseEntity.ok(response);
+    }
+
+    // ==================== UPDATE RESTAURANT WITH IMAGES ====================
+
+    @Operation(
+            summary = "Update restaurant with image uploads",
+            description = """
+                Updates a restaurant including new menu item images.
+                
+                **Multipart Form Data:**
+                - `data`: JSON string containing the UpdateRestaurantRequest
+                - `images[0-0]`, `images[0-1]`, etc.: Image files for menu items
+                  - Key format: `images[categoryIndex-itemIndex]`
+                
+                **Security:** Requires ADMIN role
+                """,
+            security = @SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Restaurant updated successfully with images",
+                    content = @Content(schema = @Schema(implementation = RestaurantDetailResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Validation error or invalid image",
+                    content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Restaurant not found",
+                    content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))
+            )
+    })
+    @PutMapping(value = "/restaurants/{id}/with-images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<RestaurantDetailResponse> updateRestaurantWithImages(
+            @Parameter(description = "Restaurant ID") @PathVariable Long id,
+            @RequestPart("data") String requestJson,
+            HttpServletRequest request
+    ) {
+        log.info("Received restaurant update request with images for id={}", id);
+
+        try {
+            UpdateRestaurantRequest updateRequest = objectMapper.readValue(
+                    requestJson,
+                    UpdateRestaurantRequest.class
+            );
+
+            Map<String, MultipartFile> itemImages = extractImages(request);
+            log.info("Total images to process: {}", itemImages.size());
+
+            RestaurantDetailResponse response = restaurantSetupService.updateRestaurantWithImages(
+                    id,
+                    updateRequest,
+                    itemImages
+            );
+
+            return ResponseEntity.ok(response);
+
+        } catch (BusinessRuleException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Error processing restaurant update with images", e);
+            throw new BusinessRuleException("Failed to process request: " + e.getMessage());
+        }
+    }
+
+    // ==================== DELETE RESTAURANT ====================
+
+    @Operation(
+            summary = "Delete restaurant",
+            description = """
+                Deletes a restaurant and all its related data.
+                
+                **Delete Modes:**
+                - Soft delete (default): Sets `isActive = false` for restaurant and all related entities
+                - Hard delete: Permanently removes all data
+                
+                **Warning:** Hard delete is irreversible!
+                
+                **Security:** Requires ADMIN role
+                """,
+            security = @SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Restaurant deleted successfully",
+                    content = @Content(schema = @Schema(implementation = DeleteRestaurantResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Restaurant not found",
+                    content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Missing or invalid JWT",
+                    content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "Forbidden (not ADMIN role)",
+                    content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))
+            )
+    })
+    @DeleteMapping("/restaurants/{id}")
+    public ResponseEntity<DeleteRestaurantResponse> deleteRestaurant(
+            @Parameter(description = "Restaurant ID") @PathVariable Long id,
+            @Parameter(description = "If true, permanently delete (irreversible)") @RequestParam(defaultValue = "false") boolean hard
+    ) {
+        DeleteRestaurantResponse response = restaurantSetupService.deleteRestaurant(id, hard);
+        return ResponseEntity.ok(response);
+    }
+
+    // ==================== HELPER METHODS ====================
+
+    private Map<String, MultipartFile> extractImages(HttpServletRequest request) {
+        Map<String, MultipartFile> itemImages = new HashMap<>();
+
+        if (request instanceof MultipartHttpServletRequest multipartRequest) {
+            Iterator<String> fileNames = multipartRequest.getFileNames();
+            while (fileNames.hasNext()) {
+                String fieldName = fileNames.next();
+                MultipartFile file = multipartRequest.getFile(fieldName);
+
+                if (file != null && !file.isEmpty()) {
+                    String imageKey;
+                    if (fieldName.startsWith("images[") && fieldName.endsWith("]")) {
+                        imageKey = fieldName.substring(7, fieldName.length() - 1);
+                    } else if (fieldName.startsWith("images_")) {
+                        imageKey = fieldName.substring(7);
+                    } else {
+                        imageKey = fieldName;
+                    }
+
+                    itemImages.put(imageKey, file);
+                    log.info("Image received: fieldName={}, key={}, size={} bytes",
+                            fieldName, imageKey, file.getSize());
+                }
+            }
+        }
+
+        return itemImages;
     }
 }
 

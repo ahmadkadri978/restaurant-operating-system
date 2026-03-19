@@ -9,6 +9,8 @@ app:
     allowed-extensions: jpg,jpeg,png,gif,webp
 
 spring:
+  jackson:
+    time-zone: Asia/Damascus
   servlet:
     multipart:
       enabled: true

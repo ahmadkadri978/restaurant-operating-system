@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -24,6 +25,12 @@ public class SseEmitterRegistry {
     private static final Logger log = LoggerFactory.getLogger(SseEmitterRegistry.class);
 
     /**
+     * Maximum connections per restaurant to prevent memory exhaustion.
+     */
+    @Value("${app.sse.max-connections-per-restaurant:500}")
+    private int maxConnectionsPerRestaurant = 500;
+
+    /**
      * Map of restaurantId -> list of active SSE emitters.
      */
     private final Map<Long, CopyOnWriteArrayList<SseEmitter>> emitters = new ConcurrentHashMap<>();
@@ -39,14 +46,26 @@ public class SseEmitterRegistry {
 
     /**
      * Register a new SSE emitter for a restaurant.
+     * Returns false if connection limit is reached.
      *
      * @param restaurantId the restaurant ID
      * @param emitter      the SSE emitter to register
+     * @return true if registered, false if limit reached
      */
-    public void register(Long restaurantId, SseEmitter emitter) {
-        emitters.computeIfAbsent(restaurantId, k -> new CopyOnWriteArrayList<>()).add(emitter);
+    public boolean register(Long restaurantId, SseEmitter emitter) {
+        CopyOnWriteArrayList<SseEmitter> list = emitters.computeIfAbsent(restaurantId, k -> new CopyOnWriteArrayList<>());
+        
+        // Check connection limit
+        if (list.size() >= maxConnectionsPerRestaurant) {
+            log.warn("SSE connection limit reached. restaurantId={}, limit={}", 
+                    restaurantId, maxConnectionsPerRestaurant);
+            return false;
+        }
+        
+        list.add(emitter);
         log.info("SSE emitter registered. restaurantId={}, totalConnections={}", 
                 restaurantId, getConnectionCount(restaurantId));
+        return true;
     }
 
     /**
@@ -164,5 +183,4 @@ public class SseEmitterRegistry {
         return List.copyOf(emitters.keySet());
     }
 }
-
 

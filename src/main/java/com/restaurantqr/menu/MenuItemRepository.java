@@ -14,6 +14,30 @@ public interface MenuItemRepository extends JpaRepository<MenuItem, Long> {
     List<MenuItem> findByIdInAndRestaurantIdAndIsActiveTrue(List<Long> ids, Long restaurantId);
 
     // ✅ Public menu load: fetch category to avoid N+1
+    // Returns all ACTIVE items (regardless of availability) so that:
+    // - active=false items are hidden completely
+    // - available=false items are shown but marked as unavailable
+    @Query("""
+        select mi
+        from MenuItem mi
+        join fetch mi.category c
+        where mi.restaurant.id = :restaurantId
+          and mi.isActive = true
+          and c.isActive = true
+        order by
+          case when mi.displayOrder is null then 1 else 0 end,
+          mi.displayOrder asc,
+          mi.id asc
+    """)
+    List<MenuItem> findActiveMenuForRestaurantFetchCategory(
+            @Param("restaurantId") Long restaurantId
+    );
+
+    /**
+     * @deprecated Use {@link #findActiveMenuForRestaurantFetchCategory(Long)} instead.
+     * This method incorrectly filters out unavailable items.
+     */
+    @Deprecated
     @Query("""
         select mi
         from MenuItem mi

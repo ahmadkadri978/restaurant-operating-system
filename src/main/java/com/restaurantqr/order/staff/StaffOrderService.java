@@ -58,6 +58,7 @@ public class StaffOrderService {
 
         return new OrderDetailsDto(
                 order.getId(),
+                order.getRestaurantOrderNumber(),
                 order.getTable().getTableNumber(),
                 order.getCreatedAt(),
                 order.getTotalAmount(),
@@ -80,7 +81,7 @@ public class StaffOrderService {
 
         // Idempotent
         if (order.getStatus() == OrderStatus.SENT_TO_KITCHEN) {
-            return new OrderStatusResponse(order.getId(), order.getStatus(), order.getSentToKitchenAt(), null, null);
+            return new OrderStatusResponse(order.getId(), order.getRestaurantOrderNumber(), order.getStatus(), order.getSentToKitchenAt(), null, null);
         }
 
         // Optional stricter rule: only NEW -> SENT_TO_KITCHEN
@@ -99,6 +100,7 @@ public class StaffOrderService {
                 restaurantId,
                 new OrderStatusPayload(
                         order.getId(),
+                        order.getRestaurantOrderNumber(),
                         order.getTable().getTableNumber(),
                         order.getStatus(),
                         order.getSentToKitchenAt(),
@@ -107,7 +109,7 @@ public class StaffOrderService {
                 )
         );
 
-        return new OrderStatusResponse(order.getId(), order.getStatus(), order.getSentToKitchenAt(), null, null);
+        return new OrderStatusResponse(order.getId(), order.getRestaurantOrderNumber(), order.getStatus(), order.getSentToKitchenAt(), null, null);
     }
 
     @Transactional
@@ -124,6 +126,7 @@ public class StaffOrderService {
         if (order.getStatus() == OrderStatus.DONE) {
             return new OrderStatusResponse(
                     order.getId(),
+                    order.getRestaurantOrderNumber(),
                     order.getStatus(),
                     order.getSentToKitchenAt(),
                     order.getDoneAt(),
@@ -145,6 +148,7 @@ public class StaffOrderService {
                 restaurantId,
                 new OrderStatusPayload(
                         order.getId(),
+                        order.getRestaurantOrderNumber(),
                         order.getTable().getTableNumber(),
                         order.getStatus(),
                         order.getSentToKitchenAt(),
@@ -155,6 +159,7 @@ public class StaffOrderService {
 
         return new OrderStatusResponse(
                 order.getId(),
+                order.getRestaurantOrderNumber(),
                 order.getStatus(),
                 order.getSentToKitchenAt(),
                 order.getDoneAt(),
@@ -176,6 +181,7 @@ public class StaffOrderService {
         if (order.getStatus() == OrderStatus.CANCELLED) {
             return new OrderStatusResponse(
                     order.getId(),
+                    order.getRestaurantOrderNumber(),
                     order.getStatus(),
                     order.getSentToKitchenAt(),
                     order.getDoneAt(),
@@ -197,6 +203,7 @@ public class StaffOrderService {
                 restaurantId,
                 new OrderStatusPayload(
                         order.getId(),
+                        order.getRestaurantOrderNumber(),
                         order.getTable().getTableNumber(),
                         order.getStatus(),
                         order.getSentToKitchenAt(),
@@ -207,6 +214,7 @@ public class StaffOrderService {
 
         return new OrderStatusResponse(
                 order.getId(),
+                order.getRestaurantOrderNumber(),
                 order.getStatus(),
                 order.getSentToKitchenAt(),
                 order.getDoneAt(),
@@ -232,6 +240,7 @@ public class StaffOrderService {
 
         return pageResult.map(o -> new OrderSummaryDto(
                 o.getId(),
+                o.getRestaurantOrderNumber(),
                 o.getTable().getTableNumber(),
                 o.getCreatedAt(),
                 o.getTotalAmount(),

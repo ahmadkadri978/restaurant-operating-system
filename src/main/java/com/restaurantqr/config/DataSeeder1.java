@@ -4,6 +4,8 @@ import com.restaurantqr.order.CustomerOrder;
 import com.restaurantqr.order.CustomerOrderRepository;
 import com.restaurantqr.order.OrderItem;
 import com.restaurantqr.order.OrderItemRepository;
+import com.restaurantqr.order.RestaurantOrderCounter;
+import com.restaurantqr.order.RestaurantOrderCounterRepository;
 import com.restaurantqr.order.staff.OrderStatus;
 import com.restaurantqr.user.Role;
 import com.restaurantqr.menu.MenuCategory;
@@ -51,6 +53,7 @@ public class DataSeeder1 {
             CustomerOrderRepository orderRepository,
             OrderItemRepository orderItemRepository,
             ServiceCallRepository serviceCallRepository,
+            RestaurantOrderCounterRepository orderCounterRepository,
             PasswordEncoder passwordEncoder
     ) {
         return args -> {
@@ -66,6 +69,14 @@ public class DataSeeder1 {
                 userRepository.save(admin);
                 System.out.println("➡ ADMIN login created: admin / admin123");
             }
+
+            // ✅ Ensure order counters exist for all existing restaurants
+            restaurantRepository.findAll().forEach(existingRestaurant -> {
+                if (!orderCounterRepository.existsById(existingRestaurant.getId())) {
+                    orderCounterRepository.save(new RestaurantOrderCounter(existingRestaurant.getId(), 0));
+                    System.out.println("➡ Order counter created for restaurant: " + existingRestaurant.getId());
+                }
+            });
 
             // ✅ Existing DB: ensure demo owner exists for the first restaurant
             if (restaurantRepository.count() > 0) {
@@ -86,6 +97,10 @@ public class DataSeeder1 {
             restaurant.setCode("DEMO");
             restaurant.setActive(true);
             restaurantRepository.save(restaurant);
+
+            // Initialize order counter for new restaurant
+            orderCounterRepository.save(new RestaurantOrderCounter(restaurant.getId(), 0));
+            System.out.println("➡ Order counter initialized for Demo Restaurant");
 
             // =========================
             // 2) Users
@@ -152,6 +167,10 @@ public class DataSeeder1 {
                 table.setTableNumber(t);
                 table.setQrToken("DEMO-TABLE-" + t);
                 table.setActive(true);
+                // Auto-open session with predictable code for testing
+                String sessionCode = String.format("%04d", 1000 + t); // 1001, 1002, etc.
+                table.setSessionCode(sessionCode);
+                table.setSessionOpenedAt(Instant.now());
                 tableRepository.save(table);
 
                 // ---- Service Call (one per table) ----
@@ -219,9 +238,12 @@ public class DataSeeder1 {
             }
 
             System.out.println("✅ Seeded: 1 restaurant + users + 20 tables + 20 orders + 20 service calls");
+            System.out.println("➡ ADMIN login: admin / admin123");
             System.out.println("➡ OWNER login: owner1 / 123456");
             System.out.println("➡ STAFF login: staff1 / 123456");
-            System.out.println("➡ Try menu: GET /api/v1/public/tables/DEMO-TABLE-1/menu");
+            System.out.println("➡ Demo Table 1: token=DEMO-TABLE-1, code=1001");
+            System.out.println("➡ Demo Table 2: token=DEMO-TABLE-2, code=1002");
+            System.out.println("➡ Try menu: http://localhost/app/screen1.html?token=DEMO-TABLE-1&code=1001");
         };
     }
 

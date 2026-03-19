@@ -29,6 +29,9 @@ public record MenuItemDetailResponse(
         boolean isAvailable,
 
         @Schema(description = "Whether the item is active", example = "true")
-        boolean isActive
+        boolean isActive,
+
+        @Schema(description = "Last update timestamp in milliseconds (for cache busting)", example = "1710672000000")
+        Long updatedAt
 ) {}
 

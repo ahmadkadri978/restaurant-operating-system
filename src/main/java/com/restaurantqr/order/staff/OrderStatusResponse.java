@@ -6,7 +6,8 @@ import java.time.Instant;
 
 @Schema(description = "Order status update response")
 public record OrderStatusResponse(
-        @Schema(example = "101") Long orderId,
+        @Schema(description = "Internal order ID", example = "101") Long orderId,
+        @Schema(description = "Restaurant-specific display order number", example = "15") Integer displayOrderNumber,
         @Schema(example = "SENT_TO_KITCHEN") OrderStatus status,
         @Schema(example = "2026-01-07T21:30:00.000Z") Instant sentToKitchenAt,
         @Schema(example = "2026-01-07T21:30:00.000Z")

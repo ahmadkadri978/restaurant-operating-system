@@ -110,6 +110,24 @@ public interface CustomerOrderRepository extends JpaRepository<CustomerOrder, Lo
             @Param("orderId") Long orderId
     );
 
+    // ==================== PUBLIC SESSION ORDERS ====================
+
+    /**
+     * Find all orders for a specific table created at or after a given timestamp.
+     * Used to retrieve orders belonging to the current active session.
+     */
+    @Query("""
+        select o
+        from CustomerOrder o
+        where o.table.id = :tableId
+          and o.createdAt >= :since
+        order by o.createdAt asc
+    """)
+    List<CustomerOrder> findByTableIdAndCreatedAtSince(
+            @Param("tableId") Long tableId,
+            @Param("since") Instant since
+    );
+
     // ==================== OWNER DASHBOARD QUERIES ====================
 
     /**

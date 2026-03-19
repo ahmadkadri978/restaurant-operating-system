@@ -8,8 +8,11 @@ import java.util.List;
 
 @Schema(name = "OrderDetailsDto", description = "Full order details including items")
 public record OrderDetailsDto(
-        @Schema(description = "Order ID", example = "101")
+        @Schema(description = "Internal Order ID", example = "101")
         Long orderId,
+
+        @Schema(description = "Restaurant-specific display order number", example = "15")
+        Integer displayOrderNumber,
 
         @Schema(description = "Table number", example = "5")
         Integer tableNumber,

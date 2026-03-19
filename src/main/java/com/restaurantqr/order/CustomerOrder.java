@@ -45,6 +45,13 @@ public class CustomerOrder {
     @Column(name = "cancelled_at")
     private Instant cancelledAt;
 
+    /**
+     * Restaurant-specific display order number (1, 2, 3... per restaurant).
+     * Used for user-facing display. The internal 'id' remains the primary key.
+     */
+    @Column(name = "restaurant_order_number")
+    private Integer restaurantOrderNumber;
+
     // Business rule (not DB): one order per minute per table
 
 
@@ -141,5 +148,13 @@ public class CustomerOrder {
 
     public void setCancelledAt(Instant cancelledAt) {
         this.cancelledAt = cancelledAt;
+    }
+
+    public Integer getRestaurantOrderNumber() {
+        return restaurantOrderNumber;
+    }
+
+    public void setRestaurantOrderNumber(Integer restaurantOrderNumber) {
+        this.restaurantOrderNumber = restaurantOrderNumber;
     }
 }

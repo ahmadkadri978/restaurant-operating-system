@@ -6,6 +6,7 @@ import com.restaurantqr.menu.MenuCategory;
 import com.restaurantqr.menu.MenuCategoryRepository;
 import com.restaurantqr.menu.MenuItem;
 import com.restaurantqr.menu.MenuItemRepository;
+import com.restaurantqr.order.RestaurantOrderCounterRepository;
 import com.restaurantqr.restaurant.Restaurant;
 import com.restaurantqr.restaurant.RestaurantRepository;
 import com.restaurantqr.table.RestaurantTable;
@@ -45,6 +46,8 @@ class RestaurantSetupServiceImplTest {
     private UserRepository userRepository;
     @Mock
     private PasswordEncoder passwordEncoder;
+    @Mock
+    private RestaurantOrderCounterRepository orderCounterRepository;
 
     @InjectMocks
     private RestaurantSetupServiceImpl service;

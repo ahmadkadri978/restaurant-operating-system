@@ -8,6 +8,7 @@ import java.time.Instant;
  */
 public record OrderCreatedPayload(
         Long orderId,
+        Integer displayOrderNumber,
         int tableNumber,
         BigDecimal totalAmount,
         String note,

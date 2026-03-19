@@ -182,15 +182,20 @@ class MenuE2EIntegrationTest {
         }
 
         @Test
-        @DisplayName("E2E: Should return only available items")
-        void shouldReturnOnlyAvailableItems() {
+        @DisplayName("E2E: Should return all active items including unavailable ones")
+        void shouldReturnAllActiveItemsIncludingUnavailable() {
             // Given
             String qrToken = "valid-qr-token";
             String code = "1234";
 
+            // Menu includes both available and unavailable items
+            // Business rules:
+            // - active=false → item hidden completely (not returned)
+            // - available=false → item returned but marked unavailable (shown as disabled in frontend)
             List<MenuItemDto> items = List.of(
-                    new MenuItemDto(1L, 1L, "Burger", "Delicious", new BigDecimal("12.50"), true, 1, null),
-                    new MenuItemDto(2L, 1L, "Pizza", "Italian", new BigDecimal("15.00"), true, 2, null)
+                    new MenuItemDto(1L, 1L, "Burger", "Delicious", new BigDecimal("12.50"), true, true, 1, null, null),
+                    new MenuItemDto(2L, 1L, "Pizza", "Italian - currently out", new BigDecimal("15.00"), false, true, 2, null, null),
+                    new MenuItemDto(3L, 1L, "Pasta", "Fresh pasta", new BigDecimal("14.00"), true, true, 3, null, null)
             );
 
             MenuResponse mockMenu = new MenuResponse(
@@ -206,9 +211,18 @@ class MenuE2EIntegrationTest {
             // When
             ResponseEntity<MenuResponse> response = controller.getMenu(qrToken, code);
 
-            // Then - all items should be available
+            // Then - all active items should be returned (including unavailable ones)
+            assertThat(response.getBody().items()).hasSize(3);
+            
+            // Verify one item is unavailable
+            long unavailableCount = response.getBody().items().stream()
+                    .filter(item -> !item.isAvailable())
+                    .count();
+            assertThat(unavailableCount).isEqualTo(1);
+            
+            // Verify all items are active
             response.getBody().items().forEach(item -> {
-                assertThat(item.isAvailable()).isTrue();
+                assertThat(item.isActive()).isTrue();
             });
         }
 
@@ -224,8 +238,10 @@ class MenuE2EIntegrationTest {
                     "Juicy beef patty with special sauce",
                     new BigDecimal("18.99"),
                     true,
+                    true,
                     1,
-                    "/uploads/menu/burger.jpg"
+                    "/uploads/menu/burger.jpg",
+                    null
             );
 
             MenuResponse mockMenu = new MenuResponse(
@@ -352,10 +368,10 @@ class MenuE2EIntegrationTest {
             );
 
             List<MenuItemDto> items = List.of(
-                    new MenuItemDto(1L, 10L, "Soup", "Hot soup", new BigDecimal("5.00"), true, 1, null),
-                    new MenuItemDto(2L, 20L, "Steak", "Beef steak", new BigDecimal("25.00"), true, 1, null),
-                    new MenuItemDto(3L, 20L, "Fish", "Fresh fish", new BigDecimal("22.00"), true, 2, null),
-                    new MenuItemDto(4L, 30L, "Cake", "Chocolate", new BigDecimal("8.00"), true, 1, null)
+                    new MenuItemDto(1L, 10L, "Soup", "Hot soup", new BigDecimal("5.00"), true, true, 1, null, null),
+                    new MenuItemDto(2L, 20L, "Steak", "Beef steak", new BigDecimal("25.00"), true, true, 1, null, null),
+                    new MenuItemDto(3L, 20L, "Fish", "Fresh fish", new BigDecimal("22.00"), true, true, 2, null, null),
+                    new MenuItemDto(4L, 30L, "Cake", "Chocolate", new BigDecimal("8.00"), true, true, 1, null, null)
             );
 
             MenuResponse mockMenu = new MenuResponse("Restaurant", 1, categories, items);
@@ -392,9 +408,9 @@ class MenuE2EIntegrationTest {
             String code = "1234";
 
             List<MenuItemDto> items = List.of(
-                    new MenuItemDto(1L, 1L, "Item 1", null, new BigDecimal("10.50"), true, 1, null),
-                    new MenuItemDto(2L, 1L, "Item 2", null, new BigDecimal("99.99"), true, 2, null),
-                    new MenuItemDto(3L, 1L, "Item 3", null, new BigDecimal("5.00"), true, 3, null)
+                    new MenuItemDto(1L, 1L, "Item 1", null, new BigDecimal("10.50"), true, true, 1, null, null),
+                    new MenuItemDto(2L, 1L, "Item 2", null, new BigDecimal("99.99"), true, true, 2, null, null),
+                    new MenuItemDto(3L, 1L, "Item 3", null, new BigDecimal("5.00"), true, true, 3, null, null)
             );
 
             MenuResponse mockMenu = new MenuResponse(
@@ -429,11 +445,11 @@ class MenuE2EIntegrationTest {
         );
 
         List<MenuItemDto> items = List.of(
-                new MenuItemDto(1L, 1L, "Burger", "Beef burger", new BigDecimal("12.50"), true, 1, null),
-                new MenuItemDto(2L, 1L, "Pizza", "Margherita", new BigDecimal("15.00"), true, 2, null),
-                new MenuItemDto(3L, 1L, "Pasta", "Carbonara", new BigDecimal("14.00"), true, 3, null),
-                new MenuItemDto(4L, 2L, "Cola", "Soft drink", new BigDecimal("3.00"), true, 1, null),
-                new MenuItemDto(5L, 2L, "Water", "Mineral", new BigDecimal("2.00"), true, 2, null)
+                new MenuItemDto(1L, 1L, "Burger", "Beef burger", new BigDecimal("12.50"), true, true, 1, null, null),
+                new MenuItemDto(2L, 1L, "Pizza", "Margherita", new BigDecimal("15.00"), true, true, 2, null, null),
+                new MenuItemDto(3L, 1L, "Pasta", "Carbonara", new BigDecimal("14.00"), true, true, 3, null, null),
+                new MenuItemDto(4L, 2L, "Cola", "Soft drink", new BigDecimal("3.00"), true, true, 1, null, null),
+                new MenuItemDto(5L, 2L, "Water", "Mineral", new BigDecimal("2.00"), true, true, 2, null, null)
         );
 
         return new MenuResponse("Test Restaurant", 5, categories, items);

@@ -21,11 +21,18 @@ public record MenuItemDto(
         @Schema(description = "Item price", example = "2.50")
         BigDecimal price,
 
-        @Schema(description = "Availability flag (true means the kitchen can prepare it now)", example = "true")
+        @Schema(description = "Availability flag (false = visible but not selectable)", example = "true")
         boolean isAvailable,
+
+        @Schema(description = "Active flag (false = hidden from menu)", example = "true")
+        boolean isActive,
 
         @Schema(description = "Display order within category/list", example = "1")
         Integer displayOrder,
-        @Schema(description = "bring item image path", example = "\\main\\resources\\static\\uploads\\menu")
-        String imageUrl
+
+        @Schema(description = "Item image path", example = "/uploads/restaurant/item.jpg")
+        String imageUrl,
+
+        @Schema(description = "Last update timestamp in milliseconds (for cache busting)", example = "1710672000000")
+        Long updatedAt
 ) {}

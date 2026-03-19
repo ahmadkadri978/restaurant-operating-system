@@ -65,9 +65,12 @@ public class MenuService {
                 .map(c -> new MenuCategoryDto(c.getId(), c.getName(), c.getDisplayOrder()))
                 .toList();
 
-        // ✅ Items: fetch category to avoid N+1 in mapping (i.getCategory().getId())
+        // ✅ Items: fetch ALL active items (available=false items are included but shown as unavailable)
+        // Business rules:
+        // - active=false → item is completely hidden (not returned from backend)
+        // - available=false → item is returned but marked as unavailable (frontend shows it disabled)
         List<MenuItemDto> items = itemRepository
-                .findActiveAvailableMenuForRestaurantFetchCategory(restaurantId)
+                .findActiveMenuForRestaurantFetchCategory(restaurantId)
                 .stream()
                 .map(i -> new MenuItemDto(
                         i.getId(),
@@ -76,8 +79,10 @@ public class MenuService {
                         i.getDescription(),
                         i.getPrice(),
                         i.isAvailable(),
+                        i.isActive(),
                         i.getDisplayOrder(),
-                        i.getImageUrl()
+                        i.getImageUrl(),
+                        i.getUpdatedAt() != null ? i.getUpdatedAt().toEpochMilli() : null
                 ))
                 .toList();
 

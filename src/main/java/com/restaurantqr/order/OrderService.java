@@ -36,6 +36,7 @@ public class OrderService {
     private final MenuItemRepository menuItemRepository;
     private final CustomerOrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
+    private final RestaurantOrderCounterRepository orderCounterRepository;
     private final PublicSessionService publicSessionService;
     private final RestaurantEventPublisher eventPublisher;
 
@@ -43,12 +44,14 @@ public class OrderService {
                         MenuItemRepository menuItemRepository,
                         CustomerOrderRepository orderRepository,
                         OrderItemRepository orderItemRepository,
+                        RestaurantOrderCounterRepository orderCounterRepository,
                         PublicSessionService publicSessionService,
                         RestaurantEventPublisher eventPublisher) {
         this.tableRepository = tableRepository;
         this.menuItemRepository = menuItemRepository;
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
+        this.orderCounterRepository = orderCounterRepository;
         this.publicSessionService = publicSessionService;
         this.eventPublisher = eventPublisher;
     }
@@ -159,6 +162,10 @@ public class OrderService {
         order.setStatus(OrderStatus.NEW);
         order.setSentToKitchenAt(null);
 
+        // 6a) Generate restaurant-specific display order number (atomic)
+        Integer displayOrderNumber = generateNextOrderNumber(restaurantId);
+        order.setRestaurantOrderNumber(displayOrderNumber);
+
         // مهم: totalAmount non-null في DB
         order.setTotalAmount(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
 
@@ -195,14 +202,15 @@ public class OrderService {
         savedOrder.setTotalAmount(totalAmount);
         CustomerOrder finalOrder = orderRepository.save(savedOrder);
 
-        log.info("Order created | orderId={} | restaurantId={} | tableId={} | total={}",
-                finalOrder.getId(), restaurantId, table.getId(), totalAmount);
+        log.info("Order created | orderId={} | displayOrderNumber={} | restaurantId={} | tableId={} | total={}",
+                finalOrder.getId(), displayOrderNumber, restaurantId, table.getId(), totalAmount);
 
         // 9) Publish SSE event for real-time updates
         eventPublisher.publishOrderCreated(
                 restaurantId,
                 new OrderCreatedPayload(
                         finalOrder.getId(),
+                        finalOrder.getRestaurantOrderNumber(),
                         table.getTableNumber(),
                         totalAmount,
                         finalOrder.getNote(),
@@ -210,7 +218,114 @@ public class OrderService {
                 )
         );
 
-        return new SubmitOrderResponse(finalOrder.getId(), finalOrder.getCreatedAt(), finalOrder.getTotalAmount());
+        return new SubmitOrderResponse(
+                finalOrder.getId(),
+                finalOrder.getRestaurantOrderNumber(),
+                finalOrder.getCreatedAt(),
+                finalOrder.getTotalAmount()
+        );
+    }
+
+    /**
+     * Atomically generates the next order number for a restaurant.
+     * Uses pessimistic locking on the counter row to prevent duplicates.
+     *
+     * @param restaurantId the restaurant ID
+     * @return the next display order number
+     */
+    private Integer generateNextOrderNumber(Long restaurantId) {
+        RestaurantOrderCounter counter = orderCounterRepository
+                .findByIdForUpdate(restaurantId)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Order counter not found for restaurant: " + restaurantId +
+                        ". Ensure counter is created when restaurant is set up."));
+
+        int nextNumber = counter.getLastOrderNumber() + 1;
+        counter.setLastOrderNumber(nextNumber);
+        orderCounterRepository.save(counter);
+
+        log.debug("Generated display order number {} for restaurant {}", nextNumber, restaurantId);
+        return nextNumber;
+    }
+
+    /**
+     * Retrieves all orders belonging to the current active session of a table.
+     * Session scope is determined by table.sessionOpenedAt — only orders created
+     * at or after that timestamp are returned.
+     *
+     * @param qrToken the table's QR token
+     * @param code    the 4-digit session code (verified against the active session)
+     * @return list of orders for the current session
+     */
+    @Transactional(readOnly = true)
+    public SessionOrdersResponse getSessionOrders(String qrToken, String code) {
+        if (qrToken == null || qrToken.isBlank()) {
+            throw new BusinessRuleException("qrToken is required");
+        }
+        if (code == null || code.isBlank()) {
+            throw new BusinessRuleException("Session code is required");
+        }
+
+        // 1) Verify session is still active and code matches
+        publicSessionService.verifySessionOrThrow(qrToken, code);
+
+        // 2) Load table (read path — no lock needed)
+        RestaurantTable table = tableRepository.findActiveByQrTokenFetchRestaurant(qrToken)
+                .orElseThrow(() -> new ResourceNotFoundException("Invalid or inactive QR token"));
+
+        // 3) Determine session boundary
+        Instant sessionStart = table.getSessionOpenedAt();
+        if (sessionStart == null) {
+            // Session was just closed between verify and here (edge case)
+            return new SessionOrdersResponse(List.of());
+        }
+
+        // 4) Fetch orders created during this session
+        List<CustomerOrder> orders = orderRepository.findByTableIdAndCreatedAtSince(
+                table.getId(), sessionStart
+        );
+
+        if (orders.isEmpty()) {
+            return new SessionOrdersResponse(List.of());
+        }
+
+        // 5) Batch-load order items to avoid N+1 queries
+        List<Long> orderIds = orders.stream().map(CustomerOrder::getId).toList();
+        List<OrderItem> allItems = orderItemRepository.findByOrderIdInWithMenuItem(orderIds);
+
+        // Group items by order ID
+        Map<Long, List<SessionOrderItemDto>> itemsByOrderId = allItems.stream()
+                .collect(Collectors.groupingBy(
+                        oi -> oi.getOrder().getId(),
+                        Collectors.mapping(
+                                oi -> new SessionOrderItemDto(
+                                        oi.getMenuItem().getName(),
+                                        oi.getQuantity(),
+                                        oi.getUnitPrice(),
+                                        oi.getTotalPrice(),
+                                        oi.getNote()
+                                ),
+                                Collectors.toList()
+                        )
+                ));
+
+        // 6) Map to DTOs
+        List<SessionOrderDto> dtos = orders.stream()
+                .map(o -> new SessionOrderDto(
+                        o.getId(),
+                        o.getRestaurantOrderNumber(),
+                        o.getStatus(),
+                        o.getCreatedAt(),
+                        o.getTotalAmount(),
+                        o.getNote(),
+                        itemsByOrderId.getOrDefault(o.getId(), List.of())
+                ))
+                .toList();
+
+        log.debug("Session orders | qrToken={} | tableId={} | sessionStart={} | count={}",
+                qrToken, table.getId(), sessionStart, dtos.size());
+
+        return new SessionOrdersResponse(dtos);
     }
 }
 

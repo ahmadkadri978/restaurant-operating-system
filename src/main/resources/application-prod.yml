@@ -4,6 +4,17 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
+    # HikariCP connection pool settings - production tuned
+    hikari:
+      pool-name: RestaurantQR-HikariCP
+      minimum-idle: 5
+      maximum-pool-size: 20
+      idle-timeout: 300000         # 5 minutes
+      max-lifetime: 1200000        # 20 minutes
+      connection-timeout: 10000    # 10 seconds
+      validation-timeout: 5000     # 5 seconds
+      leak-detection-threshold: 60000  # 1 minute - detect connection leaks
+      connection-test-query: SELECT 1
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -14,7 +25,26 @@ spring:
     hibernate:
       ddl-auto: validate
     show-sql: false
+    properties:
+      hibernate:
+        # Lock timeout for pessimistic locks (3 seconds)
+        javax.persistence.lock.timeout: 3000
+        # Batch settings for better performance
+        jdbc.batch_size: 25
+        order_inserts: true
+        order_updates: true
 
+  jackson:
+    time-zone: Asia/Damascus
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 5MB
+      max-request-size: 50MB
+
+  # Transaction timeout (30 seconds)
+  transaction:
+    default-timeout: 30
 
   h2:
     console:
@@ -29,19 +59,48 @@ app:
     dir: ${APP_UPLOAD_DIR:/srv/orders-qr/uploads}
     max-file-size: 5MB
     allowed-extensions: jpg,jpeg,png,gif,webp
+  demo:
+    seed: ${APP_DEMO_SEED:false}
+  # SSE configuration
+  sse:
+    max-connections-per-restaurant: ${SSE_MAX_CONNECTIONS:500}
+  # Admin user configuration
+  admin:
+    password: ${ADMIN_PASSWORD:admin123}
 
 logging:
   level:
     org.flywaydb: DEBUG
+    # Reduce noise in production
+    org.hibernate.SQL: WARN
+    com.zaxxer.hikari: INFO
 
+# Server settings
+server:
+  tomcat:
+    max-threads: 200
+    min-spare-threads: 10
+    accept-count: 100
+    connection-timeout: 20000
+    max-connections: 8192
+  shutdown: graceful
+
+# Actuator for production monitoring
 management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,info,metrics,hikaricp
   endpoint:
     health:
-      show-details: never
+      show-details: when_authorized
+      probes:
+        enabled: true
+  health:
+    livenessState:
+      enabled: true
+    readinessState:
+      enabled: true
 
 
 

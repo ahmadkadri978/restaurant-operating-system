@@ -13,6 +13,10 @@ public enum SseEventType {
     // Service call events
     SERVICE_CALL,
     
+    // Menu events (for public/customer SSE)
+    MENU_ITEM_UPDATED,
+    MENU_ITEM_DELETED,
+    
     // Connection events
     HEARTBEAT,
     CONNECTED

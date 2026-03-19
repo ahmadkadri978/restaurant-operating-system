@@ -112,7 +112,7 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
         } catch (DateTimeException e) {
             log.warn("Invalid timezone provided: {} | error: {}", zone, e.getMessage());
             throw new BusinessRuleException(
-                    String.format("Invalid timezone '%s'. Use standard IANA timezone IDs (e.g., 'Europe/Berlin', 'America/New_York')", zone)
+                    String.format("Invalid timezone '%s'. Use standard IANA timezone IDs (e.g., 'Asia/Damascus', 'America/New_York')", zone)
             );
         }
     }

@@ -55,6 +55,9 @@ class OrderSseIntegrationTest {
     @Mock
     private RestaurantEventPublisher eventPublisher;
 
+    @Mock
+    private RestaurantOrderCounterRepository orderCounterRepository;
+
     @Captor
     private ArgumentCaptor<OrderCreatedPayload> orderCreatedPayloadCaptor;
 
@@ -96,6 +99,7 @@ class OrderSseIntegrationTest {
                 menuItemRepository,
                 orderRepository,
                 orderItemRepository,
+                orderCounterRepository,
                 publicSessionService,
                 eventPublisher
         );
@@ -122,6 +126,12 @@ class OrderSseIntegrationTest {
             when(orderRepository.existsByTableIdAndCreatedAtAfter(anyLong(), any(Instant.class))).thenReturn(false);
             when(menuItemRepository.findByIdInAndRestaurantIdAndIsActiveTrue(anyList(), anyLong()))
                     .thenReturn(List.of(testMenuItem));
+
+            // Setup order counter mock
+            RestaurantOrderCounter counter = new RestaurantOrderCounter(1L, 0);
+            when(orderCounterRepository.findByIdForUpdate(anyLong())).thenReturn(Optional.of(counter));
+            when(orderCounterRepository.save(any(RestaurantOrderCounter.class))).thenAnswer(inv -> inv.getArgument(0));
+
             when(orderRepository.save(any(CustomerOrder.class))).thenAnswer(invocation -> {
                 CustomerOrder order = invocation.getArgument(0);
                 if (order.getId() == null) {
@@ -438,6 +448,11 @@ class OrderSseIntegrationTest {
             when(menuItemRepository.findByIdInAndRestaurantIdAndIsActiveTrue(anyList(), anyLong()))
                     .thenReturn(List.of(testMenuItem));
 
+            // Setup order counter mock
+            RestaurantOrderCounter counter = new RestaurantOrderCounter(1L, 0);
+            when(orderCounterRepository.findByIdForUpdate(anyLong())).thenReturn(Optional.of(counter));
+            when(orderCounterRepository.save(any(RestaurantOrderCounter.class))).thenAnswer(inv -> inv.getArgument(0));
+
             CustomerOrder savedOrder = new CustomerOrder();
             savedOrder.setId(200L);
             savedOrder.setRestaurant(testRestaurant);
@@ -491,6 +506,11 @@ class OrderSseIntegrationTest {
             when(menuItemRepository.findByIdInAndRestaurantIdAndIsActiveTrue(anyList(), anyLong()))
                     .thenReturn(List.of(testMenuItem));
 
+            // Setup order counter mock
+            RestaurantOrderCounter counter = new RestaurantOrderCounter(1L, 0);
+            when(orderCounterRepository.findByIdForUpdate(anyLong())).thenReturn(Optional.of(counter));
+            when(orderCounterRepository.save(any(RestaurantOrderCounter.class))).thenAnswer(inv -> inv.getArgument(0));
+
             CustomerOrder savedOrder = new CustomerOrder();
             savedOrder.setId(300L);
             savedOrder.setRestaurant(testRestaurant);
@@ -540,6 +560,11 @@ class OrderSseIntegrationTest {
             when(orderRepository.existsByTableIdAndCreatedAtAfter(anyLong(), any(Instant.class))).thenReturn(false);
             when(menuItemRepository.findByIdInAndRestaurantIdAndIsActiveTrue(anyList(), anyLong()))
                     .thenReturn(List.of(testMenuItem));
+
+            // Setup order counter mock
+            RestaurantOrderCounter counter = new RestaurantOrderCounter(restaurantId, 0);
+            when(orderCounterRepository.findByIdForUpdate(anyLong())).thenReturn(Optional.of(counter));
+            when(orderCounterRepository.save(any(RestaurantOrderCounter.class))).thenAnswer(inv -> inv.getArgument(0));
 
             CustomerOrder savedOrder = new CustomerOrder();
             savedOrder.setId(400L);

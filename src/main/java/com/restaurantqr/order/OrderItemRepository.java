@@ -23,6 +23,18 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
     """)
     List<OrderItem> findByOrderIdWithMenuItem(@Param("orderId") Long orderId);
 
+    // ✅ Batch fetch for session orders: load items for multiple orders in one query
+    @Query("""
+        select oi
+        from OrderItem oi
+        join fetch oi.menuItem mi
+        where oi.order.id in :orderIds
+        order by oi.order.id asc, oi.id asc
+    """)
+    List<OrderItem> findByOrderIdInWithMenuItem(@Param("orderIds") List<Long> orderIds);
+
+
+
     // ==================== OWNER DASHBOARD QUERIES ====================
 
     /**

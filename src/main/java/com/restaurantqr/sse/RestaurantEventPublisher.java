@@ -14,9 +14,11 @@ public class RestaurantEventPublisher {
     private static final Logger log = LoggerFactory.getLogger(RestaurantEventPublisher.class);
 
     private final SseEmitterRegistry registry;
+    private final PublicMenuSseRegistry publicMenuRegistry;
 
-    public RestaurantEventPublisher(SseEmitterRegistry registry) {
+    public RestaurantEventPublisher(SseEmitterRegistry registry, PublicMenuSseRegistry publicMenuRegistry) {
         this.registry = registry;
+        this.publicMenuRegistry = publicMenuRegistry;
     }
 
     /**
@@ -107,6 +109,46 @@ public class RestaurantEventPublisher {
                 payload
         );
         registry.broadcast(restaurantId, event);
+    }
+
+    // ==================== Menu Events (Public SSE) ====================
+
+    /**
+     * Publish a MENU_ITEM_UPDATED event when a menu item is created or updated.
+     * This is broadcast to customers via the public SSE stream.
+     *
+     * @param restaurantId the restaurant ID
+     * @param payload      the menu item updated payload
+     */
+    public void publishMenuItemUpdated(Long restaurantId, MenuItemUpdatedPayload payload) {
+        log.info("Publishing MENU_ITEM_UPDATED event. restaurantId={}, itemId={}, available={}, active={}", 
+                restaurantId, payload.itemId(), payload.isAvailable(), payload.isActive());
+        
+        SseEvent<MenuItemUpdatedPayload> event = SseEvent.of(
+                SseEventType.MENU_ITEM_UPDATED,
+                restaurantId,
+                payload
+        );
+        publicMenuRegistry.broadcast(restaurantId, event);
+    }
+
+    /**
+     * Publish a MENU_ITEM_DELETED event when a menu item is deleted.
+     * This is broadcast to customers via the public SSE stream.
+     *
+     * @param restaurantId the restaurant ID
+     * @param payload      the menu item deleted payload
+     */
+    public void publishMenuItemDeleted(Long restaurantId, MenuItemDeletedPayload payload) {
+        log.info("Publishing MENU_ITEM_DELETED event. restaurantId={}, itemId={}", 
+                restaurantId, payload.itemId());
+        
+        SseEvent<MenuItemDeletedPayload> event = SseEvent.of(
+                SseEventType.MENU_ITEM_DELETED,
+                restaurantId,
+                payload
+        );
+        publicMenuRegistry.broadcast(restaurantId, event);
     }
 }
 

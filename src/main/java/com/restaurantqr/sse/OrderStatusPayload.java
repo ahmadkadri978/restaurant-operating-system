@@ -9,6 +9,7 @@ import java.time.Instant;
  */
 public record OrderStatusPayload(
         Long orderId,
+        Integer displayOrderNumber,
         int tableNumber,
         OrderStatus status,
         Instant sentToKitchenAt,

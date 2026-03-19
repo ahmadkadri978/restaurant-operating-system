@@ -99,8 +99,20 @@ public class SseController {
             registry.remove(restaurantId, emitter);
         });
 
-        // Register emitter in registry
-        registry.register(restaurantId, emitter);
+        // Register emitter in registry (may fail if limit reached)
+        boolean registered = registry.register(restaurantId, emitter);
+        if (!registered) {
+            log.warn("SSE connection rejected - limit reached. restaurantId={}", restaurantId);
+            try {
+                emitter.send(SseEmitter.event()
+                        .name("ERROR")
+                        .data("{\"error\":\"Connection limit reached. Please try again later.\"}"));
+                emitter.complete();
+            } catch (IOException e) {
+                // Ignore - just complete
+            }
+            return emitter;
+        }
 
         // Send initial connection confirmation
         try {

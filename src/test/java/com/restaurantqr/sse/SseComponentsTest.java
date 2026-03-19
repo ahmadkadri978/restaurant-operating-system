@@ -145,11 +145,14 @@ class SseComponentsTest {
         @Mock
         private SseEmitterRegistry registry;
 
+        @Mock
+        private PublicMenuSseRegistry publicMenuRegistry;
+
         private RestaurantEventPublisher publisher;
 
         @BeforeEach
         void setUp() {
-            publisher = new RestaurantEventPublisher(registry);
+            publisher = new RestaurantEventPublisher(registry, publicMenuRegistry);
         }
 
         @Test
@@ -158,7 +161,7 @@ class SseComponentsTest {
             // Given
             Long restaurantId = 1L;
             OrderCreatedPayload payload = new OrderCreatedPayload(
-                    100L, 5, new BigDecimal("25.00"), "Test note", Instant.now()
+                    100L, 15, 5, new BigDecimal("25.00"), "Test note", Instant.now()
             );
 
             // When
@@ -181,7 +184,7 @@ class SseComponentsTest {
             // Given
             Long restaurantId = 2L;
             OrderStatusPayload payload = new OrderStatusPayload(
-                    200L, 3, com.restaurantqr.order.staff.OrderStatus.SENT_TO_KITCHEN,
+                    200L, 20, 3, com.restaurantqr.order.staff.OrderStatus.SENT_TO_KITCHEN,
                     Instant.now(), null, null
             );
 
@@ -201,7 +204,7 @@ class SseComponentsTest {
             // Given
             Long restaurantId = 3L;
             OrderStatusPayload payload = new OrderStatusPayload(
-                    300L, 7, com.restaurantqr.order.staff.OrderStatus.DONE,
+                    300L, 30, 7, com.restaurantqr.order.staff.OrderStatus.DONE,
                     Instant.now().minusSeconds(300), Instant.now(), null
             );
 
@@ -221,7 +224,7 @@ class SseComponentsTest {
             // Given
             Long restaurantId = 4L;
             OrderStatusPayload payload = new OrderStatusPayload(
-                    400L, 2, com.restaurantqr.order.staff.OrderStatus.CANCELLED,
+                    400L, 40, 2, com.restaurantqr.order.staff.OrderStatus.CANCELLED,
                     null, null, Instant.now()
             );
 
@@ -268,7 +271,7 @@ class SseComponentsTest {
         void shouldCreateEventWithFactoryMethod() {
             // Given
             OrderCreatedPayload payload = new OrderCreatedPayload(
-                    100L, 5, BigDecimal.TEN, null, Instant.now()
+                    100L, 10, 5, BigDecimal.TEN, null, Instant.now()
             );
 
             // When
@@ -320,6 +323,7 @@ class SseComponentsTest {
         void orderCreatedPayloadShouldHoldAllFields() {
             // Given
             Long orderId = 100L;
+            Integer displayOrderNumber = 15;
             int tableNumber = 5;
             BigDecimal totalAmount = new BigDecimal("99.99");
             String note = "Special instructions";
@@ -327,11 +331,12 @@ class SseComponentsTest {
 
             // When
             OrderCreatedPayload payload = new OrderCreatedPayload(
-                    orderId, tableNumber, totalAmount, note, createdAt
+                    orderId, displayOrderNumber, tableNumber, totalAmount, note, createdAt
             );
 
             // Then
             assertThat(payload.orderId()).isEqualTo(orderId);
+            assertThat(payload.displayOrderNumber()).isEqualTo(displayOrderNumber);
             assertThat(payload.tableNumber()).isEqualTo(tableNumber);
             assertThat(payload.totalAmount()).isEqualTo(totalAmount);
             assertThat(payload.note()).isEqualTo(note);
@@ -343,6 +348,7 @@ class SseComponentsTest {
         void orderStatusPayloadShouldHoldAllFields() {
             // Given
             Long orderId = 200L;
+            Integer displayOrderNumber = 25;
             int tableNumber = 3;
             com.restaurantqr.order.staff.OrderStatus status = 
                     com.restaurantqr.order.staff.OrderStatus.DONE;
@@ -351,11 +357,12 @@ class SseComponentsTest {
 
             // When
             OrderStatusPayload payload = new OrderStatusPayload(
-                    orderId, tableNumber, status, sentToKitchenAt, doneAt, null
+                    orderId, displayOrderNumber, tableNumber, status, sentToKitchenAt, doneAt, null
             );
 
             // Then
             assertThat(payload.orderId()).isEqualTo(orderId);
+            assertThat(payload.displayOrderNumber()).isEqualTo(displayOrderNumber);
             assertThat(payload.tableNumber()).isEqualTo(tableNumber);
             assertThat(payload.status()).isEqualTo(status);
             assertThat(payload.sentToKitchenAt()).isEqualTo(sentToKitchenAt);
@@ -402,6 +409,8 @@ class SseComponentsTest {
                     SseEventType.ORDER_DONE,
                     SseEventType.ORDER_CANCELLED,
                     SseEventType.SERVICE_CALL,
+                    SseEventType.MENU_ITEM_UPDATED,
+                    SseEventType.MENU_ITEM_DELETED,
                     SseEventType.HEARTBEAT,
                     SseEventType.CONNECTED
             );

@@ -100,9 +100,9 @@ public class OwnerController {
 
             @Parameter(
                     description = "Timezone for date calculations",
-                    example = "Europe/Berlin"
+                    example = "Asia/Damascus"
             )
-            @RequestParam(defaultValue = "Europe/Berlin")
+            @RequestParam(defaultValue = "Asia/Damascus")
             String zone
     ) {
         // Defensive null checks (should never happen with @PreAuthorize, but safety first)

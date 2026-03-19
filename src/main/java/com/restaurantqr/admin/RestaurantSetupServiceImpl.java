@@ -7,8 +7,13 @@ import com.restaurantqr.menu.MenuCategory;
 import com.restaurantqr.menu.MenuCategoryRepository;
 import com.restaurantqr.menu.MenuItem;
 import com.restaurantqr.menu.MenuItemRepository;
+import com.restaurantqr.order.RestaurantOrderCounter;
+import com.restaurantqr.order.RestaurantOrderCounterRepository;
 import com.restaurantqr.restaurant.Restaurant;
 import com.restaurantqr.restaurant.RestaurantRepository;
+import com.restaurantqr.sse.MenuItemDeletedPayload;
+import com.restaurantqr.sse.MenuItemUpdatedPayload;
+import com.restaurantqr.sse.RestaurantEventPublisher;
 import com.restaurantqr.table.RestaurantTable;
 import com.restaurantqr.table.RestaurantTableRepository;
 import com.restaurantqr.user.Role;
@@ -41,6 +46,8 @@ public class RestaurantSetupServiceImpl implements RestaurantSetupService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final ImageStorageService imageStorageService;
+    private final RestaurantOrderCounterRepository orderCounterRepository;
+    private final RestaurantEventPublisher eventPublisher;
 
     public RestaurantSetupServiceImpl(
             RestaurantRepository restaurantRepository,
@@ -49,7 +56,9 @@ public class RestaurantSetupServiceImpl implements RestaurantSetupService {
             RestaurantTableRepository tableRepository,
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
-            ImageStorageService imageStorageService
+            ImageStorageService imageStorageService,
+            RestaurantOrderCounterRepository orderCounterRepository,
+            RestaurantEventPublisher eventPublisher
     ) {
         this.restaurantRepository = restaurantRepository;
         this.categoryRepository = categoryRepository;
@@ -58,6 +67,8 @@ public class RestaurantSetupServiceImpl implements RestaurantSetupService {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.imageStorageService = imageStorageService;
+        this.orderCounterRepository = orderCounterRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -257,7 +268,14 @@ public class RestaurantSetupServiceImpl implements RestaurantSetupService {
         restaurant.setActive(true);
         restaurant.setCreatedAt(Instant.now());
         restaurant.setUpdatedAt(Instant.now());
-        return restaurantRepository.save(restaurant);
+        Restaurant savedRestaurant = restaurantRepository.save(restaurant);
+
+        // Initialize order counter for the new restaurant
+        RestaurantOrderCounter counter = new RestaurantOrderCounter(savedRestaurant.getId(), 0);
+        orderCounterRepository.save(counter);
+        log.debug("Initialized order counter for restaurant: {}", savedRestaurant.getId());
+
+        return savedRestaurant;
     }
 
     private MenuCategory createCategory(Restaurant restaurant, CreateCategoryRequest request, int defaultOrder) {
@@ -486,7 +504,8 @@ public class RestaurantSetupServiceImpl implements RestaurantSetupService {
                 item.getImageUrl(),
                 item.getDisplayOrder(),
                 item.isAvailable(),
-                item.isActive()
+                item.isActive(),
+                item.getUpdatedAt() != null ? item.getUpdatedAt().toEpochMilli() : null
         );
     }
 
@@ -713,6 +732,9 @@ public class RestaurantSetupServiceImpl implements RestaurantSetupService {
                 item = menuItemRepository.save(item);
             }
 
+            // Publish SSE event for menu item update (real-time update for customers)
+            publishMenuItemUpdate(item);
+
             updatedItemIds.add(item.getId());
             itemIndex++;
         }
@@ -722,6 +744,8 @@ public class RestaurantSetupServiceImpl implements RestaurantSetupService {
             List<MenuItem> allItems = menuItemRepository.findAllByCategoryId(category.getId());
             for (MenuItem item : allItems) {
                 if (!updatedItemIds.contains(item.getId())) {
+                    // Publish SSE event for deleted item before deletion
+                    publishMenuItemDeleted(restaurant.getId(), item.getId(), category.getId());
                     menuItemRepository.delete(item);
                 }
             }
@@ -920,6 +944,49 @@ public class RestaurantSetupServiceImpl implements RestaurantSetupService {
                 userCount,
                 Instant.now()
         );
+    }
+
+    // ==================== SSE Event Publishing ====================
+
+    /**
+     * Publishes a MENU_ITEM_UPDATED event to all connected customers.
+     * Called whenever a menu item is created or updated.
+     */
+    private void publishMenuItemUpdate(MenuItem item) {
+        try {
+            MenuItemUpdatedPayload payload = MenuItemUpdatedPayload.from(
+                    item.getId(),
+                    item.getCategory().getId(),
+                    item.getName(),
+                    item.getDescription(),
+                    item.getPrice(),
+                    item.getImageUrl(),
+                    item.getUpdatedAt() != null ? item.getUpdatedAt().toEpochMilli() : null,
+                    item.isAvailable(),
+                    item.isActive(),
+                    item.getDisplayOrder()
+            );
+            eventPublisher.publishMenuItemUpdated(item.getRestaurant().getId(), payload);
+        } catch (Exception e) {
+            // Log but don't fail the transaction - SSE is best-effort
+            log.warn("Failed to publish menu item update SSE event for itemId={}: {}", 
+                    item.getId(), e.getMessage());
+        }
+    }
+
+    /**
+     * Publishes a MENU_ITEM_DELETED event to all connected customers.
+     * Called before a menu item is deleted.
+     */
+    private void publishMenuItemDeleted(Long restaurantId, Long itemId, Long categoryId) {
+        try {
+            MenuItemDeletedPayload payload = new MenuItemDeletedPayload(itemId, categoryId);
+            eventPublisher.publishMenuItemDeleted(restaurantId, payload);
+        } catch (Exception e) {
+            // Log but don't fail the transaction - SSE is best-effort
+            log.warn("Failed to publish menu item deleted SSE event for itemId={}: {}", 
+                    itemId, e.getMessage());
+        }
     }
 }
 

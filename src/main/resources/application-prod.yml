@@ -21,6 +21,9 @@ spring:
     baseline-on-migrate: true
 
   jpa:
+    # CRITICAL: Disable Open Session In View to prevent connection leaks with SSE
+    # Without this, DB connections can be held for the entire HTTP request lifecycle (30 min for SSE)
+    open-in-view: false
     defer-datasource-initialization: true
     hibernate:
       ddl-auto: validate

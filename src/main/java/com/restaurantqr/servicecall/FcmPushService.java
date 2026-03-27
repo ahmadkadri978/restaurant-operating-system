@@ -23,7 +23,9 @@ public class FcmPushService {
     public void notifyServiceCall(Long restaurantId, Long callId, int tableNumber, String callTypeAr) {
         List<String> tokens = tokenService.tokensForRestaurant(restaurantId);
         if (tokens.isEmpty()) {
-            log.info("No push tokens found for restaurantId={}", restaurantId);
+            // This is expected if staff haven't enabled push notifications
+            // SSE is the primary notification mechanism, FCM is optional fallback
+            log.debug("No push tokens found for restaurantId={} (staff will receive via SSE instead)", restaurantId);
             return;
         }
 

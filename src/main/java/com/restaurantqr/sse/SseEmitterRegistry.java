@@ -78,7 +78,7 @@ public class SseEmitterRegistry {
         CopyOnWriteArrayList<SseEmitter> list = emitters.get(restaurantId);
         if (list != null) {
             list.remove(emitter);
-            log.info("SSE emitter removed. restaurantId={}, remainingConnections={}", 
+            log.debug("SSE emitter removed. restaurantId={}, remainingConnections={}", 
                     restaurantId, list.size());
             
             // Clean up empty lists
@@ -97,7 +97,8 @@ public class SseEmitterRegistry {
     public void broadcast(Long restaurantId, SseEvent<?> event) {
         CopyOnWriteArrayList<SseEmitter> list = emitters.get(restaurantId);
         if (list == null || list.isEmpty()) {
-            log.debug("No SSE connections for restaurantId={}, event not broadcast", restaurantId);
+            log.debug("No SSE connections for restaurantId={}, event type={} not broadcast", 
+                    restaurantId, event.type());
             return;
         }
 
@@ -130,8 +131,14 @@ public class SseEmitterRegistry {
             }
         }
 
-        log.debug("SSE broadcast complete. restaurantId={}, type={}, success={}, failed={}", 
-                restaurantId, event.type(), successCount, failCount);
+        // Log HEARTBEAT at debug level, other events at info level
+        if (event.type() == SseEventType.HEARTBEAT) {
+            log.debug("SSE broadcast complete. restaurantId={}, type={}, success={}, failed={}", 
+                    restaurantId, event.type(), successCount, failCount);
+        } else {
+            log.info("SSE broadcast complete. restaurantId={}, type={}, success={}, failed={}", 
+                    restaurantId, event.type(), successCount, failCount);
+        }
     }
 
     /**

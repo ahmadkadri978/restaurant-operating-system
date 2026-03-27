@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -127,9 +126,8 @@ public class PublicMenuSseRegistry {
 
     /**
      * Send heartbeats to all connected customers across all restaurants.
-     * Called by scheduler every 30 seconds.
+     * Called by SseHeartbeatScheduler every 20 seconds.
      */
-    @Scheduled(fixedRate = 30000)
     public void sendHeartbeatToAll() {
         if (emitters.isEmpty()) {
             return;

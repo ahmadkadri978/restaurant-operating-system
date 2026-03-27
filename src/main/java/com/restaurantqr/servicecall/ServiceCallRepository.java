@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 public interface ServiceCallRepository extends JpaRepository<ServiceCall, Long> {
 
@@ -16,6 +17,8 @@ public interface ServiceCallRepository extends JpaRepository<ServiceCall, Long> 
     );
 
     boolean existsByTableIdAndCreatedAtAfter(Long tableId, Instant threshold);
+
+    Optional<ServiceCall> findTopByTableIdAndCreatedAtAfterOrderByCreatedAtDesc(Long tableId, Instant threshold);
 
     //  Polling: get new service calls
     @Query("""

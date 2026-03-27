@@ -4,6 +4,7 @@ import com.restaurantqr.auth.dto.AuthPrincipal;
 import com.restaurantqr.user.UserRepository;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,6 +20,16 @@ import java.util.List;
 
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
+
+    /**
+     * Skip ASYNC dispatch requests - these are triggered during SSE connection
+     * lifecycle events (completion, timeout, error) and don't have the JWT token.
+     * The security context was already set during the initial REQUEST dispatch.
+     */
+    @Override
+    protected boolean shouldNotFilterAsyncDispatch() {
+        return true;
+    }
 
     private final JwtService jwtService;
     private final UserRepository userRepository;

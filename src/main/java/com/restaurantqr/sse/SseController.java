@@ -95,7 +95,12 @@ public class SseController {
         });
 
         emitter.onError(e -> {
-            log.warn("SSE connection error. restaurantId={}", restaurantId, e);
+            // Log at debug level - broken pipe errors are expected for SSE when clients disconnect
+            if (e.getCause() instanceof java.io.IOException) {
+                log.debug("SSE connection closed by client. restaurantId={}", restaurantId);
+            } else {
+                log.debug("SSE connection error. restaurantId={}, error={}", restaurantId, e.getMessage());
+            }
             registry.remove(restaurantId, emitter);
         });
 

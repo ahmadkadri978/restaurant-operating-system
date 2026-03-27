@@ -151,5 +151,29 @@ public class ServiceCallService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public CooldownStatusResponse getCooldownStatus(String qrToken, String code) {
+
+        if (qrToken == null || qrToken.isBlank()) throw new BusinessRuleException("qrToken is required");
+        if (code == null || code.isBlank()) throw new BusinessRuleException("Session code is required");
+
+        publicSessionService.verifySessionOrThrow(qrToken, code);
+
+        RestaurantTable table = tableRepository.findActiveByQrTokenForUpdate(qrToken)
+                .orElseThrow(() -> new ResourceNotFoundException("Invalid or inactive QR token"));
+
+        int cooldownSeconds = 180;
+        Instant threshold = Instant.now().minusSeconds(cooldownSeconds);
+
+        return serviceCallRepository
+                .findTopByTableIdAndCreatedAtAfterOrderByCreatedAtDesc(table.getId(), threshold)
+                .map(call -> {
+                    long elapsed = Instant.now().getEpochSecond() - call.getCreatedAt().getEpochSecond();
+                    int remaining = Math.max(0, cooldownSeconds - (int) elapsed);
+                    return new CooldownStatusResponse(true, remaining, call.getCallType(), call.getCreatedAt());
+                })
+                .orElse(new CooldownStatusResponse(false, 0, null, null));
+    }
+
 }
 

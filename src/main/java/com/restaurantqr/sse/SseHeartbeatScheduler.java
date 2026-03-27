@@ -17,21 +17,36 @@ public class SseHeartbeatScheduler {
     private static final Logger log = LoggerFactory.getLogger(SseHeartbeatScheduler.class);
 
     private final SseEmitterRegistry registry;
+    private final PublicMenuSseRegistry publicMenuRegistry;
 
-    public SseHeartbeatScheduler(SseEmitterRegistry registry) {
+    public SseHeartbeatScheduler(SseEmitterRegistry registry, PublicMenuSseRegistry publicMenuRegistry) {
         this.registry = registry;
+        this.publicMenuRegistry = publicMenuRegistry;
     }
 
     /**
-     * Send heartbeat to all connected clients every 30 seconds.
-     * This keeps the connection alive and helps detect stale connections.
+     * Send heartbeat to all connected staff clients every 15 seconds.
+     * This keeps the connection alive and helps detect stale connections quickly.
+     * Reduced from 30s to 15s to detect dead connections faster.
      */
-    @Scheduled(fixedRate = 30000) // 30 seconds
+    @Scheduled(fixedRate = 15000) // 15 seconds
     public void sendHeartbeats() {
         int totalConnections = registry.getTotalConnectionCount();
         if (totalConnections > 0) {
-            log.debug("Sending heartbeats to {} SSE connections", totalConnections);
+            log.debug("Sending heartbeats to {} staff SSE connections", totalConnections);
             registry.sendHeartbeatToAll();
+        }
+    }
+
+    /**
+     * Send heartbeat to all connected public menu SSE clients every 20 seconds.
+     */
+    @Scheduled(fixedRate = 20000) // 20 seconds
+    public void sendPublicHeartbeats() {
+        int totalConnections = publicMenuRegistry.getTotalConnectionCount();
+        if (totalConnections > 0) {
+            log.debug("Sending heartbeats to {} public menu SSE connections", totalConnections);
+            publicMenuRegistry.sendHeartbeatToAll();
         }
     }
 }

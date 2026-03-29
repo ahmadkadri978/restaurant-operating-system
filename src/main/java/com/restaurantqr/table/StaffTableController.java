@@ -21,7 +21,7 @@ import java.util.List;
 @Tag(name = "Staff - Tables", description = "Staff table sessions management (open/close)")
 @RestController
 @RequestMapping("/api/v1/manager")
-@PreAuthorize("hasRole('MANAGER')")
+@PreAuthorize("hasAnyRole('MANAGER', 'STAFF')")
 public class StaffTableController {
     private static final Logger log = LoggerFactory.getLogger(StaffTableController.class);
 

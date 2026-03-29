@@ -1,4 +1,7 @@
 app:
+  instance-id: ${INSTANCE_ID:local-dev}
+  redis:
+    enabled: ${REDIS_ENABLED:false}
   jwt:
     secret: ${APP_JWT_SECRET}
     issuer: restaurant-qr

@@ -65,9 +65,9 @@ class TableE2EIntegrationTest {
             void shouldReturnAllTablesForRestaurant() {
                 // Given
                 List<StaffTableDto> mockTables = List.of(
-                        new StaffTableDto(1L, 1, true, null, null),
-                        new StaffTableDto(2L, 2, true, "1234", Instant.now()),
-                        new StaffTableDto(3L, 3, false, null, null)
+                        new StaffTableDto(1L, 1, true, "QR-1", null, null),
+                        new StaffTableDto(2L, 2, true, "QR-2", "1234", Instant.now()),
+                        new StaffTableDto(3L, 3, false, "QR-3", null, null)
                 );
                 when(sessionService.listTables(restaurantId)).thenReturn(mockTables);
 
@@ -102,7 +102,7 @@ class TableE2EIntegrationTest {
                 // Given
                 Instant openedAt = Instant.now().minusSeconds(3600);
                 List<StaffTableDto> mockTables = List.of(
-                        new StaffTableDto(1L, 1, true, "5678", openedAt)
+                        new StaffTableDto(1L, 1, true, "QR-1", "5678", openedAt)
                 );
                 when(sessionService.listTables(restaurantId)).thenReturn(mockTables);
 
@@ -276,7 +276,7 @@ class TableE2EIntegrationTest {
 
                 // Table shows in list with session info
                 List<StaffTableDto> tablesAfterOpen = List.of(
-                        new StaffTableDto(tableId, 1, true, "1234", openedAt)
+                        new StaffTableDto(tableId, 1, true, "QR-1", "1234", openedAt)
                 );
                 when(sessionService.listTables(restaurantId)).thenReturn(tablesAfterOpen);
 
@@ -403,8 +403,8 @@ class TableE2EIntegrationTest {
             when(auth1.getPrincipal()).thenReturn(principal1);
 
             List<StaffTableDto> restaurant1Tables = List.of(
-                    new StaffTableDto(1L, 1, true, null, null),
-                    new StaffTableDto(2L, 2, true, null, null)
+                    new StaffTableDto(1L, 1, true, "QR-R1-1", null, null),
+                    new StaffTableDto(2L, 2, true, "QR-R1-2", null, null)
             );
             when(sessionService.listTables(restaurant1Id)).thenReturn(restaurant1Tables);
 
@@ -415,7 +415,7 @@ class TableE2EIntegrationTest {
             when(auth2.getPrincipal()).thenReturn(principal2);
 
             List<StaffTableDto> restaurant2Tables = List.of(
-                    new StaffTableDto(10L, 1, true, "5555", Instant.now())
+                    new StaffTableDto(10L, 1, true, "QR-R2-1", "5555", Instant.now())
             );
             when(sessionService.listTables(restaurant2Id)).thenReturn(restaurant2Tables);
 

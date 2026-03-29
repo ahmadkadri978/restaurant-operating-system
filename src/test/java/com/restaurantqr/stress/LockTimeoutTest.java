@@ -6,7 +6,6 @@ import com.restaurantqr.order.CustomerOrder;
 import com.restaurantqr.order.CustomerOrderRepository;
 import com.restaurantqr.order.OrderItemRepository;
 import com.restaurantqr.restaurant.Restaurant;
-import com.restaurantqr.sse.RestaurantEventPublisher;
 import com.restaurantqr.table.RestaurantTable;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -14,6 +13,7 @@ import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -39,7 +39,7 @@ class LockTimeoutTest {
     @Mock
     private OrderItemRepository orderItemRepository;
     @Mock
-    private RestaurantEventPublisher eventPublisher;
+    private ApplicationEventPublisher eventPublisher;
 
     private StaffOrderService staffOrderService;
 
@@ -369,7 +369,7 @@ class LockTimeoutTest {
             doAnswer(inv -> {
                 sseEventsPublished.incrementAndGet();
                 return null;
-            }).when(eventPublisher).publishOrderSentToKitchen(anyLong(), any());
+            }).when(eventPublisher).publishEvent(any(Object.class));
 
             // When
             for (int i = 0; i < orderCount; i++) {

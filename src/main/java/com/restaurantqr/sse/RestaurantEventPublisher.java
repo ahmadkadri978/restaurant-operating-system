@@ -2,6 +2,7 @@ package com.restaurantqr.sse;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
@@ -15,10 +16,14 @@ public class RestaurantEventPublisher {
 
     private final SseEmitterRegistry registry;
     private final PublicMenuSseRegistry publicMenuRegistry;
+    private final String instanceId;
 
-    public RestaurantEventPublisher(SseEmitterRegistry registry, PublicMenuSseRegistry publicMenuRegistry) {
+    public RestaurantEventPublisher(SseEmitterRegistry registry,
+                                    PublicMenuSseRegistry publicMenuRegistry,
+                                    @Value("${app.instance-id:unknown}") String instanceId) {
         this.registry = registry;
         this.publicMenuRegistry = publicMenuRegistry;
+        this.instanceId = instanceId;
     }
 
     /**
@@ -34,7 +39,8 @@ public class RestaurantEventPublisher {
         SseEvent<OrderCreatedPayload> event = SseEvent.of(
                 SseEventType.ORDER_CREATED,
                 restaurantId,
-                payload
+                payload,
+                instanceId
         );
         registry.broadcast(restaurantId, event);
     }
@@ -52,7 +58,8 @@ public class RestaurantEventPublisher {
         SseEvent<OrderStatusPayload> event = SseEvent.of(
                 SseEventType.ORDER_SENT_TO_KITCHEN,
                 restaurantId,
-                payload
+                payload,
+                instanceId
         );
         registry.broadcast(restaurantId, event);
     }
@@ -70,7 +77,8 @@ public class RestaurantEventPublisher {
         SseEvent<OrderStatusPayload> event = SseEvent.of(
                 SseEventType.ORDER_DONE,
                 restaurantId,
-                payload
+                payload,
+                instanceId
         );
         registry.broadcast(restaurantId, event);
     }
@@ -88,7 +96,8 @@ public class RestaurantEventPublisher {
         SseEvent<OrderStatusPayload> event = SseEvent.of(
                 SseEventType.ORDER_CANCELLED,
                 restaurantId,
-                payload
+                payload,
+                instanceId
         );
         registry.broadcast(restaurantId, event);
     }
@@ -106,7 +115,8 @@ public class RestaurantEventPublisher {
         SseEvent<ServiceCallPayload> event = SseEvent.of(
                 SseEventType.SERVICE_CALL,
                 restaurantId,
-                payload
+                payload,
+                instanceId
         );
         registry.broadcast(restaurantId, event);
     }
@@ -127,7 +137,8 @@ public class RestaurantEventPublisher {
         SseEvent<MenuItemUpdatedPayload> event = SseEvent.of(
                 SseEventType.MENU_ITEM_UPDATED,
                 restaurantId,
-                payload
+                payload,
+                instanceId
         );
         publicMenuRegistry.broadcast(restaurantId, event);
     }
@@ -146,7 +157,8 @@ public class RestaurantEventPublisher {
         SseEvent<MenuItemDeletedPayload> event = SseEvent.of(
                 SseEventType.MENU_ITEM_DELETED,
                 restaurantId,
-                payload
+                payload,
+                instanceId
         );
         publicMenuRegistry.broadcast(restaurantId, event);
     }

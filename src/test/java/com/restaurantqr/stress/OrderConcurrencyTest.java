@@ -6,7 +6,6 @@ import com.restaurantqr.menu.MenuItemRepository;
 import com.restaurantqr.order.*;
 import com.restaurantqr.order.staff.OrderStatus;
 import com.restaurantqr.restaurant.Restaurant;
-import com.restaurantqr.sse.RestaurantEventPublisher;
 import com.restaurantqr.table.PublicSessionService;
 import com.restaurantqr.table.RestaurantTable;
 import com.restaurantqr.table.RestaurantTableRepository;
@@ -16,6 +15,7 @@ import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -49,7 +49,7 @@ class OrderConcurrencyTest {
     @Mock
     private PublicSessionService publicSessionService;
     @Mock
-    private RestaurantEventPublisher eventPublisher;
+    private ApplicationEventPublisher eventPublisher;
 
     private OrderService orderService;
 

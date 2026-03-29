@@ -49,6 +49,19 @@ spring:
   transaction:
     default-timeout: 30
 
+  # Redis pub/sub for multi-instance SSE fan-out
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 5000
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 4
+          min-idle: 1
+
   h2:
     console:
       enabled: false
@@ -64,6 +77,11 @@ app:
     allowed-extensions: jpg,jpeg,png,gif,webp
   demo:
     seed: ${APP_DEMO_SEED:false}
+  # Instance identifier for multi-instance logging / event tracing
+  instance-id: ${INSTANCE_ID:${HOSTNAME:unknown}}
+  # Redis pub/sub for multi-instance SSE fan-out
+  redis:
+    enabled: ${REDIS_ENABLED:true}
   # SSE configuration
   sse:
     max-connections-per-restaurant: ${SSE_MAX_CONNECTIONS:500}
@@ -93,12 +111,15 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,hikaricp
+        include: health,info,metrics,hikaricp,prometheus
   endpoint:
     health:
       show-details: when_authorized
       probes:
         enabled: true
+      group:
+        readiness:
+          include: readinessState,redis
   health:
     livenessState:
       enabled: true

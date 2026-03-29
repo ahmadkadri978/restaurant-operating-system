@@ -152,7 +152,7 @@ class SseComponentsTest {
 
         @BeforeEach
         void setUp() {
-            publisher = new RestaurantEventPublisher(registry, publicMenuRegistry);
+            publisher = new RestaurantEventPublisher(registry, publicMenuRegistry, "test-instance");
         }
 
         @Test

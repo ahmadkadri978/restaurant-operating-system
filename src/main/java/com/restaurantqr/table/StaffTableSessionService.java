@@ -44,6 +44,7 @@ public class StaffTableSessionService {
                         t.getId(),
                         t.getTableNumber(),
                         t.isActive(),
+                        t.getQrToken(),
                         t.getSessionCode(),
                         t.getSessionOpenedAt()
                 ))

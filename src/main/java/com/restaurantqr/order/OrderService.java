@@ -8,12 +8,14 @@ import com.restaurantqr.menu.MenuItemRepository;
 import com.restaurantqr.order.staff.OrderStatus;
 import com.restaurantqr.restaurant.Restaurant;
 import com.restaurantqr.sse.OrderCreatedPayload;
-import com.restaurantqr.sse.RestaurantEventPublisher;
+import com.restaurantqr.sse.SseEventType;
+import com.restaurantqr.sse.SseOutboundEvent;
 import com.restaurantqr.table.PublicSessionService;
 import com.restaurantqr.table.RestaurantTable;
 import com.restaurantqr.table.RestaurantTableRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,7 +40,7 @@ public class OrderService {
     private final OrderItemRepository orderItemRepository;
     private final RestaurantOrderCounterRepository orderCounterRepository;
     private final PublicSessionService publicSessionService;
-    private final RestaurantEventPublisher eventPublisher;
+    private final ApplicationEventPublisher eventPublisher;
 
     public OrderService(RestaurantTableRepository tableRepository,
                         MenuItemRepository menuItemRepository,
@@ -46,7 +48,7 @@ public class OrderService {
                         OrderItemRepository orderItemRepository,
                         RestaurantOrderCounterRepository orderCounterRepository,
                         PublicSessionService publicSessionService,
-                        RestaurantEventPublisher eventPublisher) {
+                        ApplicationEventPublisher eventPublisher) {
         this.tableRepository = tableRepository;
         this.menuItemRepository = menuItemRepository;
         this.orderRepository = orderRepository;
@@ -205,8 +207,9 @@ public class OrderService {
         log.info("Order created | orderId={} | displayOrderNumber={} | restaurantId={} | tableId={} | total={}",
                 finalOrder.getId(), displayOrderNumber, restaurantId, table.getId(), totalAmount);
 
-        // 9) Publish SSE event for real-time updates
-        eventPublisher.publishOrderCreated(
+        // 9) Publish SSE event after transaction commits (via @TransactionalEventListener)
+        eventPublisher.publishEvent(SseOutboundEvent.of(
+                SseEventType.ORDER_CREATED,
                 restaurantId,
                 new OrderCreatedPayload(
                         finalOrder.getId(),
@@ -216,7 +219,7 @@ public class OrderService {
                         finalOrder.getNote(),
                         finalOrder.getCreatedAt()
                 )
-        );
+        ));
 
         return new SubmitOrderResponse(
                 finalOrder.getId(),

@@ -1,7 +1,8 @@
 package com.restaurantqr.servicecall;
 
 import com.restaurantqr.restaurant.Restaurant;
-import com.restaurantqr.sse.RestaurantEventPublisher;
+import com.restaurantqr.sse.SseEventType;
+import com.restaurantqr.sse.SseOutboundEvent;
 import com.restaurantqr.sse.ServiceCallPayload;
 import com.restaurantqr.table.PublicSessionService;
 import com.restaurantqr.table.RestaurantTable;
@@ -12,6 +13,7 @@ import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -44,10 +46,10 @@ class ServiceCallSseIntegrationTest {
     private PublicSessionService publicSessionService;
 
     @Mock
-    private RestaurantEventPublisher eventPublisher;
+    private ApplicationEventPublisher eventPublisher;
 
     @Captor
-    private ArgumentCaptor<ServiceCallPayload> serviceCallPayloadCaptor;
+    private ArgumentCaptor<SseOutboundEvent> sseOutboundEventCaptor;
 
     private Restaurant testRestaurant;
     private RestaurantTable testTable;
@@ -76,6 +78,16 @@ class ServiceCallSseIntegrationTest {
                 publicSessionService,
                 eventPublisher
         );
+    }
+
+    /**
+     * Helper: capture the SseOutboundEvent and extract ServiceCallPayload.
+     */
+    private ServiceCallPayload captureServiceCallPayload() {
+        verify(eventPublisher).publishEvent(sseOutboundEventCaptor.capture());
+        SseOutboundEvent event = sseOutboundEventCaptor.getValue();
+        assertThat(event.eventType()).isEqualTo(SseEventType.SERVICE_CALL);
+        return (ServiceCallPayload) event.payload();
     }
 
     // ==================== Service Call Created SSE Tests ====================
@@ -114,9 +126,7 @@ class ServiceCallSseIntegrationTest {
             assertThat(response.callType()).isEqualTo(CallType.WAITER);
 
             // Verify SSE event was published
-            verify(eventPublisher).publishServiceCall(eq(1L), serviceCallPayloadCaptor.capture());
-
-            ServiceCallPayload payload = serviceCallPayloadCaptor.getValue();
+            ServiceCallPayload payload = captureServiceCallPayload();
             assertThat(payload.callId()).isEqualTo(100L);
             assertThat(payload.tableNumber()).isEqualTo(7);
             assertThat(payload.callType()).isEqualTo(CallType.WAITER);
@@ -133,9 +143,7 @@ class ServiceCallSseIntegrationTest {
             serviceCallService.createCall("test-qr-token", "valid-code", request);
 
             // Then
-            verify(eventPublisher).publishServiceCall(eq(1L), serviceCallPayloadCaptor.capture());
-
-            ServiceCallPayload payload = serviceCallPayloadCaptor.getValue();
+            ServiceCallPayload payload = captureServiceCallPayload();
             assertThat(payload.callType()).isEqualTo(CallType.BILL);
         }
 
@@ -149,9 +157,7 @@ class ServiceCallSseIntegrationTest {
             serviceCallService.createCall("test-qr-token", "valid-code", request);
 
             // Then
-            verify(eventPublisher).publishServiceCall(eq(1L), serviceCallPayloadCaptor.capture());
-
-            ServiceCallPayload payload = serviceCallPayloadCaptor.getValue();
+            ServiceCallPayload payload = captureServiceCallPayload();
             assertThat(payload.callType()).isEqualTo(CallType.NARA);
         }
 
@@ -165,8 +171,8 @@ class ServiceCallSseIntegrationTest {
             serviceCallService.createCall("test-qr-token", "valid-code", request);
 
             // Then
-            verify(eventPublisher).publishServiceCall(anyLong(), serviceCallPayloadCaptor.capture());
-            assertThat(serviceCallPayloadCaptor.getValue().tableNumber()).isEqualTo(7);
+            ServiceCallPayload payload = captureServiceCallPayload();
+            assertThat(payload.tableNumber()).isEqualTo(7);
         }
 
         @Test
@@ -294,7 +300,8 @@ class ServiceCallSseIntegrationTest {
             serviceCallService.createCall("test-qr-token", "valid-code", request);
 
             // Then
-            verify(eventPublisher).publishServiceCall(eq(99L), any(ServiceCallPayload.class));
+            verify(eventPublisher).publishEvent(sseOutboundEventCaptor.capture());
+            assertThat(sseOutboundEventCaptor.getValue().restaurantId()).isEqualTo(99L);
         }
 
         @Test
@@ -310,7 +317,8 @@ class ServiceCallSseIntegrationTest {
 
             // Then - both FCM and SSE should receive same restaurant ID
             verify(fcmPushService).notifyServiceCall(eq(1L), anyLong(), anyInt(), anyString());
-            verify(eventPublisher).publishServiceCall(eq(1L), any(ServiceCallPayload.class));
+            verify(eventPublisher).publishEvent(sseOutboundEventCaptor.capture());
+            assertThat(sseOutboundEventCaptor.getValue().restaurantId()).isEqualTo(1L);
         }
     }
 
@@ -352,8 +360,8 @@ class ServiceCallSseIntegrationTest {
                 // Then
                 assertThat(response.callType()).isEqualTo(callType);
 
-                verify(eventPublisher).publishServiceCall(anyLong(), serviceCallPayloadCaptor.capture());
-                assertThat(serviceCallPayloadCaptor.getValue().callType()).isEqualTo(callType);
+                ServiceCallPayload payload = captureServiceCallPayload();
+                assertThat(payload.callType()).isEqualTo(callType);
             }
         }
     }
@@ -390,9 +398,7 @@ class ServiceCallSseIntegrationTest {
 
             // Then - both should be called
             verify(fcmPushService).notifyServiceCall(eq(1L), eq(500L), eq(7), eq("نادل"));
-            verify(eventPublisher).publishServiceCall(eq(1L), serviceCallPayloadCaptor.capture());
-
-            ServiceCallPayload payload = serviceCallPayloadCaptor.getValue();
+            ServiceCallPayload payload = captureServiceCallPayload();
             assertThat(payload.callId()).isEqualTo(500L);
         }
 
@@ -423,9 +429,9 @@ class ServiceCallSseIntegrationTest {
             // Then
             ArgumentCaptor<Long> fcmCallIdCaptor = ArgumentCaptor.forClass(Long.class);
             verify(fcmPushService).notifyServiceCall(anyLong(), fcmCallIdCaptor.capture(), anyInt(), anyString());
-            verify(eventPublisher).publishServiceCall(anyLong(), serviceCallPayloadCaptor.capture());
+            ServiceCallPayload payload = captureServiceCallPayload();
 
-            assertThat(fcmCallIdCaptor.getValue()).isEqualTo(serviceCallPayloadCaptor.getValue().callId());
+            assertThat(fcmCallIdCaptor.getValue()).isEqualTo(payload.callId());
         }
     }
 
@@ -460,8 +466,7 @@ class ServiceCallSseIntegrationTest {
             ServiceCallResponse response = serviceCallService.createCall("test-qr-token", "valid-code", request);
 
             // Then
-            verify(eventPublisher).publishServiceCall(anyLong(), serviceCallPayloadCaptor.capture());
-            ServiceCallPayload payload = serviceCallPayloadCaptor.getValue();
+            ServiceCallPayload payload = captureServiceCallPayload();
 
             // Response and payload should have identical data
             assertThat(response.id()).isEqualTo(payload.callId());
@@ -471,5 +476,4 @@ class ServiceCallSseIntegrationTest {
         }
     }
 }
-
 

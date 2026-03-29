@@ -22,7 +22,7 @@ import java.time.Instant;
 @Tag(name = "Staff - Orders", description = "Staff dashboard endpoints (JWT required)")
 @RestController
 @RequestMapping("/api/v1/manager")
-@PreAuthorize("hasRole('MANAGER')")
+@PreAuthorize("hasAnyRole('MANAGER', 'STAFF')")
 public class StaffOrderController {
 
     private final StaffOrderService staffOrderService;

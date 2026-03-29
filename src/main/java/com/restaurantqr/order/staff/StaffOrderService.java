@@ -7,9 +7,11 @@ import com.restaurantqr.order.CustomerOrder;
 import com.restaurantqr.order.CustomerOrderRepository;
 import com.restaurantqr.order.OrderItemRepository;
 import com.restaurantqr.sse.OrderStatusPayload;
-import com.restaurantqr.sse.RestaurantEventPublisher;
+import com.restaurantqr.sse.SseEventType;
+import com.restaurantqr.sse.SseOutboundEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -24,11 +26,11 @@ public class StaffOrderService {
 
     private final CustomerOrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
-    private final RestaurantEventPublisher eventPublisher;
+    private final ApplicationEventPublisher eventPublisher;
 
     public StaffOrderService(CustomerOrderRepository orderRepository,
                              OrderItemRepository orderItemRepository,
-                             RestaurantEventPublisher eventPublisher) {
+                             ApplicationEventPublisher eventPublisher) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.eventPublisher = eventPublisher;
@@ -95,8 +97,9 @@ public class StaffOrderService {
         // save() optional because managed+transactional, but keep explicit for clarity
         orderRepository.save(order);
 
-        // Publish SSE event for real-time updates
-        eventPublisher.publishOrderSentToKitchen(
+        // Publish SSE event after transaction commits
+        eventPublisher.publishEvent(SseOutboundEvent.of(
+                SseEventType.ORDER_SENT_TO_KITCHEN,
                 restaurantId,
                 new OrderStatusPayload(
                         order.getId(),
@@ -107,7 +110,7 @@ public class StaffOrderService {
                         null,
                         null
                 )
-        );
+        ));
 
         return new OrderStatusResponse(order.getId(), order.getRestaurantOrderNumber(), order.getStatus(), order.getSentToKitchenAt(), null, null);
     }
@@ -143,8 +146,9 @@ public class StaffOrderService {
 
         orderRepository.save(order);
 
-        // Publish SSE event for real-time updates
-        eventPublisher.publishOrderDone(
+        // Publish SSE event after transaction commits
+        eventPublisher.publishEvent(SseOutboundEvent.of(
+                SseEventType.ORDER_DONE,
                 restaurantId,
                 new OrderStatusPayload(
                         order.getId(),
@@ -155,7 +159,7 @@ public class StaffOrderService {
                         order.getDoneAt(),
                         null
                 )
-        );
+        ));
 
         return new OrderStatusResponse(
                 order.getId(),
@@ -198,8 +202,9 @@ public class StaffOrderService {
 
         orderRepository.save(order);
 
-        // Publish SSE event for real-time updates
-        eventPublisher.publishOrderCancelled(
+        // Publish SSE event after transaction commits
+        eventPublisher.publishEvent(SseOutboundEvent.of(
+                SseEventType.ORDER_CANCELLED,
                 restaurantId,
                 new OrderStatusPayload(
                         order.getId(),
@@ -210,7 +215,7 @@ public class StaffOrderService {
                         order.getDoneAt(),
                         order.getCancelledAt()
                 )
-        );
+        ));
 
         return new OrderStatusResponse(
                 order.getId(),

@@ -3,6 +3,8 @@ package com.restaurantqr.sse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -37,8 +39,19 @@ public class SseEmitterRegistry {
 
     private final ObjectMapper objectMapper;
 
+    public SseEmitterRegistry(MeterRegistry meterRegistry) {
+        this.objectMapper = new ObjectMapper();
+        this.objectMapper.registerModule(new JavaTimeModule());
+        this.objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+        // Phase C: register gauge for active staff SSE connections
+        Gauge.builder("sse.staff.connections.active", this, SseEmitterRegistry::getTotalConnectionCount)
+                .description("Active staff SSE connections on this instance")
+                .register(meterRegistry);
+    }
+
+    // For unit tests that don't need metrics
     public SseEmitterRegistry() {
-        // Create ObjectMapper with Java 8 time support
         this.objectMapper = new ObjectMapper();
         this.objectMapper.registerModule(new JavaTimeModule());
         this.objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
@@ -117,6 +130,7 @@ public class SseEmitterRegistry {
         for (SseEmitter emitter : list) {
             try {
                 emitter.send(SseEmitter.event()
+                        .id(event.eventId())
                         .name(event.type().name())
                         .data(eventData));
                 successCount++;
@@ -133,11 +147,11 @@ public class SseEmitterRegistry {
 
         // Log HEARTBEAT at debug level, other events at info level
         if (event.type() == SseEventType.HEARTBEAT) {
-            log.debug("SSE broadcast complete. restaurantId={}, type={}, success={}, failed={}", 
-                    restaurantId, event.type(), successCount, failCount);
+            log.debug("SSE broadcast complete. restaurantId={}, type={}, eventId={}, success={}, failed={}", 
+                    restaurantId, event.type(), event.eventId(), successCount, failCount);
         } else {
-            log.info("SSE broadcast complete. restaurantId={}, type={}, success={}, failed={}", 
-                    restaurantId, event.type(), successCount, failCount);
+            log.info("SSE broadcast complete. restaurantId={}, type={}, eventId={}, success={}, failed={}", 
+                    restaurantId, event.type(), event.eventId(), successCount, failCount);
         }
     }
 

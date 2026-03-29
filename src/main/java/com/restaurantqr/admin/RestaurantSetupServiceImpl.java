@@ -13,7 +13,8 @@ import com.restaurantqr.restaurant.Restaurant;
 import com.restaurantqr.restaurant.RestaurantRepository;
 import com.restaurantqr.sse.MenuItemDeletedPayload;
 import com.restaurantqr.sse.MenuItemUpdatedPayload;
-import com.restaurantqr.sse.RestaurantEventPublisher;
+import com.restaurantqr.sse.SseEventType;
+import com.restaurantqr.sse.SseOutboundEvent;
 import com.restaurantqr.table.RestaurantTable;
 import com.restaurantqr.table.RestaurantTableRepository;
 import com.restaurantqr.user.Role;
@@ -21,6 +22,7 @@ import com.restaurantqr.user.User;
 import com.restaurantqr.user.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -47,7 +49,7 @@ public class RestaurantSetupServiceImpl implements RestaurantSetupService {
     private final PasswordEncoder passwordEncoder;
     private final ImageStorageService imageStorageService;
     private final RestaurantOrderCounterRepository orderCounterRepository;
-    private final RestaurantEventPublisher eventPublisher;
+    private final ApplicationEventPublisher eventPublisher;
 
     public RestaurantSetupServiceImpl(
             RestaurantRepository restaurantRepository,
@@ -58,7 +60,7 @@ public class RestaurantSetupServiceImpl implements RestaurantSetupService {
             PasswordEncoder passwordEncoder,
             ImageStorageService imageStorageService,
             RestaurantOrderCounterRepository orderCounterRepository,
-            RestaurantEventPublisher eventPublisher
+            ApplicationEventPublisher eventPublisher
     ) {
         this.restaurantRepository = restaurantRepository;
         this.categoryRepository = categoryRepository;
@@ -951,6 +953,7 @@ public class RestaurantSetupServiceImpl implements RestaurantSetupService {
     /**
      * Publishes a MENU_ITEM_UPDATED event to all connected customers.
      * Called whenever a menu item is created or updated.
+     * Actual SSE broadcast happens after transaction commits via @TransactionalEventListener.
      */
     private void publishMenuItemUpdate(MenuItem item) {
         try {
@@ -966,7 +969,11 @@ public class RestaurantSetupServiceImpl implements RestaurantSetupService {
                     item.isActive(),
                     item.getDisplayOrder()
             );
-            eventPublisher.publishMenuItemUpdated(item.getRestaurant().getId(), payload);
+            eventPublisher.publishEvent(SseOutboundEvent.of(
+                    SseEventType.MENU_ITEM_UPDATED,
+                    item.getRestaurant().getId(),
+                    payload
+            ));
         } catch (Exception e) {
             // Log but don't fail the transaction - SSE is best-effort
             log.warn("Failed to publish menu item update SSE event for itemId={}: {}", 
@@ -977,11 +984,16 @@ public class RestaurantSetupServiceImpl implements RestaurantSetupService {
     /**
      * Publishes a MENU_ITEM_DELETED event to all connected customers.
      * Called before a menu item is deleted.
+     * Actual SSE broadcast happens after transaction commits via @TransactionalEventListener.
      */
     private void publishMenuItemDeleted(Long restaurantId, Long itemId, Long categoryId) {
         try {
             MenuItemDeletedPayload payload = new MenuItemDeletedPayload(itemId, categoryId);
-            eventPublisher.publishMenuItemDeleted(restaurantId, payload);
+            eventPublisher.publishEvent(SseOutboundEvent.of(
+                    SseEventType.MENU_ITEM_DELETED,
+                    restaurantId,
+                    payload
+            ));
         } catch (Exception e) {
             // Log but don't fail the transaction - SSE is best-effort
             log.warn("Failed to publish menu item deleted SSE event for itemId={}: {}", 

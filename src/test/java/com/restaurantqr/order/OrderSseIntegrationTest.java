@@ -15,6 +15,7 @@ import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -53,16 +54,13 @@ class OrderSseIntegrationTest {
     private PublicSessionService publicSessionService;
 
     @Mock
-    private RestaurantEventPublisher eventPublisher;
+    private ApplicationEventPublisher eventPublisher;
 
     @Mock
     private RestaurantOrderCounterRepository orderCounterRepository;
 
     @Captor
-    private ArgumentCaptor<OrderCreatedPayload> orderCreatedPayloadCaptor;
-
-    @Captor
-    private ArgumentCaptor<OrderStatusPayload> orderStatusPayloadCaptor;
+    private ArgumentCaptor<SseOutboundEvent> sseOutboundEventCaptor;
 
     private Restaurant testRestaurant;
     private RestaurantTable testTable;
@@ -160,9 +158,12 @@ class OrderSseIntegrationTest {
             assertThat(response.orderId()).isEqualTo(100L);
 
             // Verify SSE event was published
-            verify(eventPublisher).publishOrderCreated(eq(1L), orderCreatedPayloadCaptor.capture());
+            verify(eventPublisher).publishEvent(sseOutboundEventCaptor.capture());
+            SseOutboundEvent outEvent = sseOutboundEventCaptor.getValue();
+            assertThat(outEvent.eventType()).isEqualTo(SseEventType.ORDER_CREATED);
+            assertThat(outEvent.restaurantId()).isEqualTo(1L);
 
-            OrderCreatedPayload payload = orderCreatedPayloadCaptor.getValue();
+            OrderCreatedPayload payload = (OrderCreatedPayload) outEvent.payload();
             assertThat(payload.orderId()).isEqualTo(100L);
             assertThat(payload.tableNumber()).isEqualTo(5);
             assertThat(payload.note()).isEqualTo("Test order note");
@@ -183,9 +184,9 @@ class OrderSseIntegrationTest {
             orderService.submitOrder("test-qr-token", "valid-code", request);
 
             // Then
-            verify(eventPublisher).publishOrderCreated(eq(1L), orderCreatedPayloadCaptor.capture());
+            verify(eventPublisher).publishEvent(sseOutboundEventCaptor.capture());
 
-            OrderCreatedPayload payload = orderCreatedPayloadCaptor.getValue();
+            OrderCreatedPayload payload = (OrderCreatedPayload) sseOutboundEventCaptor.getValue().payload();
             assertThat(payload.totalAmount()).isEqualByComparingTo(new BigDecimal("37.50"));
         }
 
@@ -235,9 +236,10 @@ class OrderSseIntegrationTest {
             staffOrderService.markSentToKitchen(1L, 100L);
 
             // Then
-            verify(eventPublisher).publishOrderSentToKitchen(eq(1L), orderStatusPayloadCaptor.capture());
+            verify(eventPublisher).publishEvent(sseOutboundEventCaptor.capture());
+            assertThat(sseOutboundEventCaptor.getValue().eventType()).isEqualTo(SseEventType.ORDER_SENT_TO_KITCHEN);
 
-            OrderStatusPayload payload = orderStatusPayloadCaptor.getValue();
+            OrderStatusPayload payload = (OrderStatusPayload) sseOutboundEventCaptor.getValue().payload();
             assertThat(payload.orderId()).isEqualTo(100L);
             assertThat(payload.tableNumber()).isEqualTo(5);
             assertThat(payload.status()).isEqualTo(OrderStatus.SENT_TO_KITCHEN);
@@ -312,9 +314,10 @@ class OrderSseIntegrationTest {
             staffOrderService.markDone(1L, 100L);
 
             // Then
-            verify(eventPublisher).publishOrderDone(eq(1L), orderStatusPayloadCaptor.capture());
+            verify(eventPublisher).publishEvent(sseOutboundEventCaptor.capture());
+            assertThat(sseOutboundEventCaptor.getValue().eventType()).isEqualTo(SseEventType.ORDER_DONE);
 
-            OrderStatusPayload payload = orderStatusPayloadCaptor.getValue();
+            OrderStatusPayload payload = (OrderStatusPayload) sseOutboundEventCaptor.getValue().payload();
             assertThat(payload.orderId()).isEqualTo(100L);
             assertThat(payload.tableNumber()).isEqualTo(5);
             assertThat(payload.status()).isEqualTo(OrderStatus.DONE);
@@ -389,9 +392,10 @@ class OrderSseIntegrationTest {
             staffOrderService.markCancelled(1L, 100L);
 
             // Then
-            verify(eventPublisher).publishOrderCancelled(eq(1L), orderStatusPayloadCaptor.capture());
+            verify(eventPublisher).publishEvent(sseOutboundEventCaptor.capture());
+            assertThat(sseOutboundEventCaptor.getValue().eventType()).isEqualTo(SseEventType.ORDER_CANCELLED);
 
-            OrderStatusPayload payload = orderStatusPayloadCaptor.getValue();
+            OrderStatusPayload payload = (OrderStatusPayload) sseOutboundEventCaptor.getValue().payload();
             assertThat(payload.orderId()).isEqualTo(100L);
             assertThat(payload.tableNumber()).isEqualTo(5);
             assertThat(payload.status()).isEqualTo(OrderStatus.CANCELLED);
@@ -472,7 +476,8 @@ class OrderSseIntegrationTest {
             orderService.submitOrder("test-qr-token", "valid-code", request);
 
             // Verify ORDER_CREATED event
-            verify(eventPublisher).publishOrderCreated(eq(1L), any(OrderCreatedPayload.class));
+            verify(eventPublisher).publishEvent(sseOutboundEventCaptor.capture());
+            assertThat(sseOutboundEventCaptor.getValue().eventType()).isEqualTo(SseEventType.ORDER_CREATED);
 
             // === Phase 2: Send to Kitchen ===
             reset(eventPublisher);
@@ -481,8 +486,8 @@ class OrderSseIntegrationTest {
             staffOrderService.markSentToKitchen(1L, 200L);
 
             // Verify ORDER_SENT_TO_KITCHEN event
-            verify(eventPublisher).publishOrderSentToKitchen(eq(1L), orderStatusPayloadCaptor.capture());
-            assertThat(orderStatusPayloadCaptor.getValue().status()).isEqualTo(OrderStatus.SENT_TO_KITCHEN);
+            verify(eventPublisher).publishEvent(sseOutboundEventCaptor.capture());
+            assertThat(((OrderStatusPayload) sseOutboundEventCaptor.getValue().payload()).status()).isEqualTo(OrderStatus.SENT_TO_KITCHEN);
 
             // === Phase 3: Mark Done ===
             reset(eventPublisher);
@@ -492,8 +497,8 @@ class OrderSseIntegrationTest {
             staffOrderService.markDone(1L, 200L);
 
             // Verify ORDER_DONE event
-            verify(eventPublisher).publishOrderDone(eq(1L), orderStatusPayloadCaptor.capture());
-            assertThat(orderStatusPayloadCaptor.getValue().status()).isEqualTo(OrderStatus.DONE);
+            verify(eventPublisher).publishEvent(sseOutboundEventCaptor.capture());
+            assertThat(((OrderStatusPayload) sseOutboundEventCaptor.getValue().payload()).status()).isEqualTo(OrderStatus.DONE);
         }
 
         @Test
@@ -527,7 +532,8 @@ class OrderSseIntegrationTest {
                     new SubmitOrderRequest(List.of(new SubmitOrderItemRequest(1L, 1, null)), null));
 
             // Verify ORDER_CREATED
-            verify(eventPublisher).publishOrderCreated(eq(1L), any(OrderCreatedPayload.class));
+            verify(eventPublisher).publishEvent(sseOutboundEventCaptor.capture());
+            assertThat(sseOutboundEventCaptor.getValue().eventType()).isEqualTo(SseEventType.ORDER_CREATED);
 
             // Cancel order
             reset(eventPublisher);
@@ -536,9 +542,11 @@ class OrderSseIntegrationTest {
             staffOrderService.markCancelled(1L, 300L);
 
             // Verify ORDER_CANCELLED event
-            verify(eventPublisher).publishOrderCancelled(eq(1L), orderStatusPayloadCaptor.capture());
-            assertThat(orderStatusPayloadCaptor.getValue().status()).isEqualTo(OrderStatus.CANCELLED);
-            assertThat(orderStatusPayloadCaptor.getValue().orderId()).isEqualTo(300L);
+            verify(eventPublisher).publishEvent(sseOutboundEventCaptor.capture());
+            assertThat(sseOutboundEventCaptor.getValue().eventType()).isEqualTo(SseEventType.ORDER_CANCELLED);
+            OrderStatusPayload cancelPayload = (OrderStatusPayload) sseOutboundEventCaptor.getValue().payload();
+            assertThat(cancelPayload.status()).isEqualTo(OrderStatus.CANCELLED);
+            assertThat(cancelPayload.orderId()).isEqualTo(300L);
         }
     }
 
@@ -582,7 +590,9 @@ class OrderSseIntegrationTest {
                     new SubmitOrderRequest(List.of(new SubmitOrderItemRequest(1L, 1, null)), null));
 
             // Then - Event should be published with restaurant ID 42
-            verify(eventPublisher).publishOrderCreated(eq(42L), any(OrderCreatedPayload.class));
+            verify(eventPublisher).publishEvent(sseOutboundEventCaptor.capture());
+            assertThat(sseOutboundEventCaptor.getValue().restaurantId()).isEqualTo(42L);
+            assertThat(sseOutboundEventCaptor.getValue().eventType()).isEqualTo(SseEventType.ORDER_CREATED);
         }
     }
 }

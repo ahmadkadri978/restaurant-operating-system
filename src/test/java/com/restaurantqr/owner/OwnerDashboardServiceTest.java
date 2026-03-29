@@ -1,6 +1,7 @@
 package com.restaurantqr.owner;
 
 import com.restaurantqr.exception.BusinessRuleException;
+import com.restaurantqr.finance.SessionBillRepository;
 import com.restaurantqr.order.CustomerOrderRepository;
 import com.restaurantqr.order.OrderItemRepository;
 import com.restaurantqr.order.staff.OrderStatus;
@@ -48,6 +49,9 @@ class OwnerDashboardServiceTest {
 
     @Mock
     private TableSessionRepository sessionRepository;
+
+    @Mock
+    private SessionBillRepository billRepository;
 
     @InjectMocks
     private OwnerDashboardServiceImpl dashboardService;
@@ -543,6 +547,12 @@ class OwnerDashboardServiceTest {
         when(sessionRepository.findTopTablesBySessionCount(any(), any(Instant.class), any(Instant.class), any())).thenReturn(new ArrayList<>());
         when(sessionRepository.findPeakSessionHours(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
         when(sessionRepository.findCurrentlyOpenSessions(any())).thenReturn(new ArrayList<>());
+
+        // Mock bill repository
+        when(billRepository.sumGrandTotalByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(BigDecimal.ZERO);
+        when(billRepository.sumChargesTotalByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(BigDecimal.ZERO);
+        when(billRepository.countFinalizedBillsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(billRepository.findChargesBreakdownByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(new ArrayList<>());
     }
 
     private void setupMocksWithEmptyLists() {
@@ -578,6 +588,12 @@ class OwnerDashboardServiceTest {
         when(sessionRepository.findTopTablesBySessionCount(any(), any(Instant.class), any(Instant.class), any())).thenReturn(new ArrayList<>());
         when(sessionRepository.findPeakSessionHours(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
         when(sessionRepository.findCurrentlyOpenSessions(any())).thenReturn(new ArrayList<>());
+
+        // Mock bill repository (empty)
+        when(billRepository.sumGrandTotalByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(BigDecimal.ZERO);
+        when(billRepository.sumChargesTotalByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(BigDecimal.ZERO);
+        when(billRepository.countFinalizedBillsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(billRepository.findChargesBreakdownByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(new ArrayList<>());
     }
 }
 

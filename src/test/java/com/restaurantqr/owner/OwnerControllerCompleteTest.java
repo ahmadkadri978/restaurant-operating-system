@@ -57,7 +57,8 @@ class OwnerControllerCompleteTest {
                 new BigDecimal("3.33"),
                 new BigDecimal("1234.56"),
                 new BigDecimal("10.29"),
-                20L, 15L, 23L
+                20L, 15L, 23L,
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, 0L
         );
 
         mockResponse = new OwnerDashboardResponse(
@@ -74,7 +75,8 @@ class OwnerControllerCompleteTest {
                 new ArrayList<>(),
                 new ArrayList<>(),
                 new SessionAnalyticsDto(0L, 0L, 0L, null, null, null, 0L,
-                        new ArrayList<>(), new ArrayList<>(), new ArrayList<>())
+                        new ArrayList<>(), new ArrayList<>(), new ArrayList<>()),
+                new ArrayList<>()
         );
     }
 
@@ -560,7 +562,8 @@ class OwnerControllerCompleteTest {
                     mockResponse.dateRange(), mockResponse.overview(),
                     new ArrayList<>(), new ArrayList<>(), new ArrayList<>(),
                     new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(),
-                    mockResponse.sessionAnalytics()
+                    mockResponse.sessionAnalytics(),
+                    new ArrayList<>()
             );
             when(dashboardService.getDashboard(any(), any(), any(), any())).thenReturn(longNameResponse);
 

@@ -3,6 +3,7 @@ package com.restaurantqr.order;
 import com.restaurantqr.order.staff.OrderStatus;
 import com.restaurantqr.restaurant.Restaurant;
 import com.restaurantqr.table.RestaurantTable;
+import com.restaurantqr.table.TableSession;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -51,6 +52,10 @@ public class CustomerOrder {
      */
     @Column(name = "restaurant_order_number")
     private Integer restaurantOrderNumber;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "table_session_id")
+    private TableSession tableSession;
 
     // Business rule (not DB): one order per minute per table
 
@@ -156,5 +161,13 @@ public class CustomerOrder {
 
     public void setRestaurantOrderNumber(Integer restaurantOrderNumber) {
         this.restaurantOrderNumber = restaurantOrderNumber;
+    }
+
+    public TableSession getTableSession() {
+        return tableSession;
+    }
+
+    public void setTableSession(TableSession tableSession) {
+        this.tableSession = tableSession;
     }
 }

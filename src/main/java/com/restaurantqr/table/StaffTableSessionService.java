@@ -2,6 +2,8 @@ package com.restaurantqr.table;
 
 import com.restaurantqr.exception.BusinessRuleException;
 import com.restaurantqr.exception.ResourceNotFoundException;
+import com.restaurantqr.finance.BillCalculationService;
+import com.restaurantqr.finance.InvoiceService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -22,12 +24,18 @@ public class StaffTableSessionService {
 
     private final RestaurantTableRepository tableRepository;
     private final TableSessionRepository sessionRepository;
+    private final BillCalculationService billCalculationService;
+    private final InvoiceService invoiceService;
     private final SecureRandom random = new SecureRandom();
 
     public StaffTableSessionService(RestaurantTableRepository tableRepository,
-                                    TableSessionRepository sessionRepository) {
+                                    TableSessionRepository sessionRepository,
+                                    BillCalculationService billCalculationService,
+                                    InvoiceService invoiceService) {
         this.tableRepository = tableRepository;
         this.sessionRepository = sessionRepository;
+        this.billCalculationService = billCalculationService;
+        this.invoiceService = invoiceService;
     }
 
     @Transactional(readOnly = true)
@@ -152,6 +160,26 @@ public class StaffTableSessionService {
             sessionRepository.save(session);
             log.debug("Session history closed | tableId={} | sessionId={} | durationMinutes={}",
                     tableId, session.getId(), session.getDurationMinutes());
+
+            // ✅ Finalize the session bill (snapshot financial rules + compute totals)
+            try {
+                billCalculationService.finalizeBill(session.getId());
+                log.info("Session bill finalized | tableId={} | sessionId={}", tableId, session.getId());
+            } catch (Exception e) {
+                // Bill finalization failure should not block session close
+                log.error("Failed to finalize bill for session {} | tableId={} | error={}",
+                        session.getId(), tableId, e.getMessage(), e);
+            }
+
+            // ✅ Generate invoice (snapshot all session data for formal document)
+            try {
+                invoiceService.generateInvoice(session.getId());
+                log.info("Invoice generated | tableId={} | sessionId={}", tableId, session.getId());
+            } catch (Exception e) {
+                // Invoice generation failure should not block session close
+                log.error("Failed to generate invoice for session {} | tableId={} | error={}",
+                        session.getId(), tableId, e.getMessage(), e);
+            }
         });
 
         // ✅ Clear live session fields

@@ -54,7 +54,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/public/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasAuthority("ROLE_ADMIN")
                         .requestMatchers("/api/v1/owner/**").hasAuthority("ROLE_OWNER")
-                        .requestMatchers("/api/v1/manager/**").hasAnyAuthority("ROLE_MANAGER", "ROLE_STAFF")
+                        .requestMatchers("/api/v1/manager/invoices/**").hasAnyAuthority("ROLE_MANAGER", "ROLE_OWNER")
+                        .requestMatchers("/api/v1/manager/**").hasAnyAuthority("ROLE_MANAGER")
                         .requestMatchers("/api/v1/staff/**").hasAnyAuthority("ROLE_STAFF", "ROLE_MANAGER")
                         .requestMatchers("/api/v1/kitchen/**").hasAnyAuthority("ROLE_KITCHEN", "ROLE_MANAGER")
                         // SSE endpoint - accessible by all staff roles

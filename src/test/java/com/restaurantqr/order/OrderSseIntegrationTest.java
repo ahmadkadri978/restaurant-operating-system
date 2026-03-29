@@ -9,6 +9,7 @@ import com.restaurantqr.sse.*;
 import com.restaurantqr.table.PublicSessionService;
 import com.restaurantqr.table.RestaurantTable;
 import com.restaurantqr.table.RestaurantTableRepository;
+import com.restaurantqr.table.TableSessionRepository;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
@@ -59,6 +60,9 @@ class OrderSseIntegrationTest {
     @Mock
     private RestaurantOrderCounterRepository orderCounterRepository;
 
+    @Mock
+    private TableSessionRepository tableSessionRepository;
+
     @Captor
     private ArgumentCaptor<SseOutboundEvent> sseOutboundEventCaptor;
 
@@ -99,6 +103,7 @@ class OrderSseIntegrationTest {
                 orderItemRepository,
                 orderCounterRepository,
                 publicSessionService,
+                tableSessionRepository,
                 eventPublisher
         );
 

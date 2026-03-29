@@ -1,6 +1,7 @@
 package com.restaurantqr.owner;
 
 import com.restaurantqr.exception.BusinessRuleException;
+import com.restaurantqr.finance.SessionBillRepository;
 import com.restaurantqr.order.CustomerOrderRepository;
 import com.restaurantqr.order.OrderItemRepository;
 import com.restaurantqr.order.staff.OrderStatus;
@@ -36,6 +37,7 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
     private final ServiceCallRepository serviceCallRepository;
     private final RestaurantTableRepository tableRepository;
     private final TableSessionRepository sessionRepository;
+    private final SessionBillRepository billRepository;
 
     public OwnerDashboardServiceImpl(
             RestaurantRepository restaurantRepository,
@@ -43,7 +45,8 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
             OrderItemRepository orderItemRepository,
             ServiceCallRepository serviceCallRepository,
             RestaurantTableRepository tableRepository,
-            TableSessionRepository sessionRepository
+            TableSessionRepository sessionRepository,
+            SessionBillRepository billRepository
     ) {
         this.restaurantRepository = restaurantRepository;
         this.orderRepository = orderRepository;
@@ -51,6 +54,7 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
         this.serviceCallRepository = serviceCallRepository;
         this.tableRepository = tableRepository;
         this.sessionRepository = sessionRepository;
+        this.billRepository = billRepository;
     }
 
     @Override
@@ -217,6 +221,11 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
         // Query session analytics
         SessionAnalyticsDto sessionAnalytics = querySessionAnalytics(restaurantId, startDate, endDate);
 
+        // Query charges breakdown from finalized bills
+        List<ChargeBreakdownDto> chargesBreakdown = billRepository.findChargesBreakdownByRestaurantAndDateRange(
+                restaurantId, startDate, endDate
+        );
+
         return new OwnerDashboardResponse(
                 restaurantId,
                 restaurant.getName(),
@@ -230,7 +239,8 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
                 topTables,
                 serviceCallsByType,
                 peakHours,
-                sessionAnalytics
+                sessionAnalytics,
+                chargesBreakdown
         );
     }
 
@@ -317,8 +327,30 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
         );
         serviceCallsCount = (serviceCallsCount != null) ? serviceCallsCount : 0L;
 
-        log.debug("Overview calculated | totalOrders={} | doneOrders={} | cancelledOrders={} | grossRevenue={} | completionRate={}% | cancellationRate={}%",
-                totalOrders, doneOrders, cancelledOrders, grossRevenue, completionRate, cancellationRate);
+        // ── Billing revenue from finalized session bills ──
+        BigDecimal totalBilledRevenue = billRepository.sumGrandTotalByRestaurantAndDateRange(
+                restaurantId, startDate, endDate
+        );
+        totalBilledRevenue = (totalBilledRevenue != null) ? totalBilledRevenue : BigDecimal.ZERO;
+
+        BigDecimal totalChargesRevenue = billRepository.sumChargesTotalByRestaurantAndDateRange(
+                restaurantId, startDate, endDate
+        );
+        totalChargesRevenue = (totalChargesRevenue != null) ? totalChargesRevenue : BigDecimal.ZERO;
+
+        Long finalizedBillsCount = billRepository.countFinalizedBillsByRestaurantAndDateRange(
+                restaurantId, startDate, endDate
+        );
+        finalizedBillsCount = (finalizedBillsCount != null) ? finalizedBillsCount : 0L;
+
+        BigDecimal averageBillValue = BigDecimal.ZERO;
+        if (finalizedBillsCount > 0) {
+            averageBillValue = totalBilledRevenue
+                    .divide(BigDecimal.valueOf(finalizedBillsCount), 2, RoundingMode.HALF_UP);
+        }
+
+        log.debug("Overview calculated | totalOrders={} | doneOrders={} | cancelledOrders={} | grossRevenue={} | billedRevenue={} | chargesRevenue={} | completionRate={}% | cancellationRate={}%",
+                totalOrders, doneOrders, cancelledOrders, grossRevenue, totalBilledRevenue, totalChargesRevenue, completionRate, cancellationRate);
 
         return new OverviewDto(
                 totalOrders,
@@ -332,7 +364,11 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
                 averageOrderValue,
                 activeTablesCount,
                 tablesWithOrdersCount,
-                serviceCallsCount
+                serviceCallsCount,
+                totalBilledRevenue,
+                totalChargesRevenue,
+                averageBillValue,
+                finalizedBillsCount
         );
     }
 

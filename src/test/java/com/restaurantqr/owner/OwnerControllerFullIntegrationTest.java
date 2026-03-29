@@ -2,6 +2,7 @@ package com.restaurantqr.owner;
 
 import com.restaurantqr.auth.dto.AuthPrincipal;
 import com.restaurantqr.exception.BusinessRuleException;
+import com.restaurantqr.finance.SessionBillRepository;
 import com.restaurantqr.order.CustomerOrderRepository;
 import com.restaurantqr.order.OrderItemRepository;
 import com.restaurantqr.order.staff.OrderStatus;
@@ -62,6 +63,9 @@ class OwnerControllerFullIntegrationTest {
     @Mock
     private TableSessionRepository sessionRepository;
 
+    @Mock
+    private SessionBillRepository billRepository;
+
     private Restaurant testRestaurant;
     private Long restaurantId;
     private Authentication authentication;
@@ -80,7 +84,8 @@ class OwnerControllerFullIntegrationTest {
                 orderItemRepository,
                 serviceCallRepository,
                 tableRepository,
-                sessionRepository
+                sessionRepository,
+                billRepository
         );
         
         // Create controller
@@ -563,6 +568,16 @@ class OwnerControllerFullIntegrationTest {
         when(sessionRepository.findPeakSessionHours(anyLong(), anyLong(), anyLong()))
                 .thenReturn(new ArrayList<>());
         when(sessionRepository.findCurrentlyOpenSessions(anyLong()))
+                .thenReturn(new ArrayList<>());
+
+        // Mock bill repository
+        when(billRepository.sumGrandTotalByRestaurantAndDateRange(anyLong(), any(Instant.class), any(Instant.class)))
+                .thenReturn(BigDecimal.ZERO);
+        when(billRepository.sumChargesTotalByRestaurantAndDateRange(anyLong(), any(Instant.class), any(Instant.class)))
+                .thenReturn(BigDecimal.ZERO);
+        when(billRepository.countFinalizedBillsByRestaurantAndDateRange(anyLong(), any(Instant.class), any(Instant.class)))
+                .thenReturn(0L);
+        when(billRepository.findChargesBreakdownByRestaurantAndDateRange(anyLong(), any(Instant.class), any(Instant.class)))
                 .thenReturn(new ArrayList<>());
     }
 }

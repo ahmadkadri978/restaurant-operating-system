@@ -482,7 +482,8 @@ class OwnerE2EIntegrationTest {
                         150L, 10L, 15L, 120L, 5L,
                         new BigDecimal("96.00"), new BigDecimal("3.33"),
                         new BigDecimal("5000.00"), new BigDecimal("41.67"),
-                        20L, 15L, 45L
+                        20L, 15L, 45L,
+                        BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, 0L
                 ),
                 List.of(new RevenuePointDto(startOfDay, new BigDecimal("5000.00"), 150L)),
                 List.of(
@@ -501,7 +502,8 @@ class OwnerE2EIntegrationTest {
                 new SessionAnalyticsDto(
                         85L, 3L, 82L, 47, 180, 5, 3854L,
                         List.of(), List.of(), List.of()
-                )
+                ),
+                List.of()
         );
     }
 }

@@ -9,6 +9,7 @@ import com.restaurantqr.restaurant.Restaurant;
 import com.restaurantqr.table.PublicSessionService;
 import com.restaurantqr.table.RestaurantTable;
 import com.restaurantqr.table.RestaurantTableRepository;
+import com.restaurantqr.table.TableSessionRepository;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
@@ -50,6 +51,8 @@ class OrderConcurrencyTest {
     private PublicSessionService publicSessionService;
     @Mock
     private ApplicationEventPublisher eventPublisher;
+    @Mock
+    private TableSessionRepository tableSessionRepository;
 
     private OrderService orderService;
 
@@ -66,6 +69,7 @@ class OrderConcurrencyTest {
                 orderItemRepository,
                 orderCounterRepository,
                 publicSessionService,
+                tableSessionRepository,
                 eventPublisher
         );
 

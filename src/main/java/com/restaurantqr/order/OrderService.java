@@ -13,6 +13,7 @@ import com.restaurantqr.sse.SseOutboundEvent;
 import com.restaurantqr.table.PublicSessionService;
 import com.restaurantqr.table.RestaurantTable;
 import com.restaurantqr.table.RestaurantTableRepository;
+import com.restaurantqr.table.TableSessionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -40,6 +41,7 @@ public class OrderService {
     private final OrderItemRepository orderItemRepository;
     private final RestaurantOrderCounterRepository orderCounterRepository;
     private final PublicSessionService publicSessionService;
+    private final TableSessionRepository tableSessionRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     public OrderService(RestaurantTableRepository tableRepository,
@@ -48,6 +50,7 @@ public class OrderService {
                         OrderItemRepository orderItemRepository,
                         RestaurantOrderCounterRepository orderCounterRepository,
                         PublicSessionService publicSessionService,
+                        TableSessionRepository tableSessionRepository,
                         ApplicationEventPublisher eventPublisher) {
         this.tableRepository = tableRepository;
         this.menuItemRepository = menuItemRepository;
@@ -55,6 +58,7 @@ public class OrderService {
         this.orderItemRepository = orderItemRepository;
         this.orderCounterRepository = orderCounterRepository;
         this.publicSessionService = publicSessionService;
+        this.tableSessionRepository = tableSessionRepository;
         this.eventPublisher = eventPublisher;
     }
 
@@ -170,6 +174,10 @@ public class OrderService {
 
         // مهم: totalAmount non-null في DB
         order.setTotalAmount(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+
+        // 6b) Link order to active session (explicit FK)
+        tableSessionRepository.findOpenSessionByTableId(table.getId())
+                .ifPresent(order::setTableSession);
 
         CustomerOrder savedOrder = orderRepository.save(order);
 

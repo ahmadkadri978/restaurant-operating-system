@@ -27,10 +27,10 @@ public record OverviewDto(
         @Schema(description = "Cancellation rate (CANCELLED / total), 0-100", example = "3.33")
         BigDecimal cancellationRate,
 
-        @Schema(description = "Gross revenue (excluding cancelled orders)", example = "1234.56")
+        @Schema(description = "Gross revenue from items only (excluding cancelled orders)", example = "1234.56")
         BigDecimal grossRevenue,
 
-        @Schema(description = "Average order value", example = "10.29")
+        @Schema(description = "Average order value (items only)", example = "10.29")
         BigDecimal averageOrderValue,
 
         @Schema(description = "Number of active tables in restaurant", example = "20")
@@ -40,7 +40,19 @@ public record OverviewDto(
         Long tablesWithOrdersCount,
 
         @Schema(description = "Number of service calls in the period", example = "23")
-        Long serviceCallsCount
+        Long serviceCallsCount,
+
+        @Schema(description = "Total billed revenue (items + charges from finalized bills)", example = "1500.00")
+        BigDecimal totalBilledRevenue,
+
+        @Schema(description = "Total charges/taxes revenue from finalized bills", example = "265.44")
+        BigDecimal totalChargesRevenue,
+
+        @Schema(description = "Average bill value per finalized session", example = "125.00")
+        BigDecimal averageBillValue,
+
+        @Schema(description = "Number of finalized bills in the period", example = "12")
+        Long finalizedBillsCount
 ) {}
 
 

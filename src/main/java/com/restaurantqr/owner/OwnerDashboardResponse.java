@@ -43,6 +43,9 @@ public record OwnerDashboardResponse(
         List<PeakHourDto> peakHours,
 
         @Schema(description = "Table session analytics")
-        SessionAnalyticsDto sessionAnalytics
+        SessionAnalyticsDto sessionAnalytics,
+
+        @Schema(description = "Revenue breakdown by charge type (from finalized bills)")
+        List<ChargeBreakdownDto> chargesBreakdown
 ) {}
 

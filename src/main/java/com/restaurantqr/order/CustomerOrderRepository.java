@@ -131,6 +131,43 @@ public interface CustomerOrderRepository extends JpaRepository<CustomerOrder, Lo
     // ==================== OWNER DASHBOARD QUERIES ====================
 
     /**
+     * Find all non-cancelled orders linked to a session via explicit FK.
+     * Used for bill calculation.
+     */
+    @Query("""
+        select o
+        from CustomerOrder o
+        where o.tableSession.id = :sessionId
+          and o.status != :excludeStatus
+        order by o.createdAt asc
+    """)
+    List<CustomerOrder> findByTableSessionIdAndStatusNot(
+            @Param("sessionId") Long sessionId,
+            @Param("excludeStatus") OrderStatus excludeStatus
+    );
+
+    /**
+     * Fallback: find orders by table and timestamp range (for pre-migration orders without session FK).
+     */
+    @Query("""
+        select o
+        from CustomerOrder o
+        where o.table.id = :tableId
+          and o.createdAt >= :start
+          and o.createdAt <= :end
+          and o.status != :excludeStatus
+        order by o.createdAt asc
+    """)
+    List<CustomerOrder> findByTableIdAndCreatedAtBetweenAndStatusNot(
+            @Param("tableId") Long tableId,
+            @Param("start") Instant start,
+            @Param("end") Instant end,
+            @Param("excludeStatus") OrderStatus excludeStatus
+    );
+
+    // ==================== OWNER DASHBOARD QUERIES (original) ====================
+
+    /**
      * Count all orders for restaurant in date range.
      */
     @Query("""

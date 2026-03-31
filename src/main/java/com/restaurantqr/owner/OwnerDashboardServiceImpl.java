@@ -2,6 +2,7 @@ package com.restaurantqr.owner;
 
 import com.restaurantqr.exception.BusinessRuleException;
 import com.restaurantqr.finance.SessionBillRepository;
+import com.restaurantqr.finance.SessionPaymentRepository;
 import com.restaurantqr.order.CustomerOrderRepository;
 import com.restaurantqr.order.OrderItemRepository;
 import com.restaurantqr.order.staff.OrderStatus;
@@ -38,6 +39,7 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
     private final RestaurantTableRepository tableRepository;
     private final TableSessionRepository sessionRepository;
     private final SessionBillRepository billRepository;
+    private final SessionPaymentRepository paymentRepository;
 
     public OwnerDashboardServiceImpl(
             RestaurantRepository restaurantRepository,
@@ -46,7 +48,8 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
             ServiceCallRepository serviceCallRepository,
             RestaurantTableRepository tableRepository,
             TableSessionRepository sessionRepository,
-            SessionBillRepository billRepository
+            SessionBillRepository billRepository,
+            SessionPaymentRepository paymentRepository
     ) {
         this.restaurantRepository = restaurantRepository;
         this.orderRepository = orderRepository;
@@ -55,6 +58,7 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
         this.tableRepository = tableRepository;
         this.sessionRepository = sessionRepository;
         this.billRepository = billRepository;
+        this.paymentRepository = paymentRepository;
     }
 
     @Override
@@ -349,8 +353,23 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
                     .divide(BigDecimal.valueOf(finalizedBillsCount), 2, RoundingMode.HALF_UP);
         }
 
-        log.debug("Overview calculated | totalOrders={} | doneOrders={} | cancelledOrders={} | grossRevenue={} | billedRevenue={} | chargesRevenue={} | completionRate={}% | cancellationRate={}%",
-                totalOrders, doneOrders, cancelledOrders, grossRevenue, totalBilledRevenue, totalChargesRevenue, completionRate, cancellationRate);
+        // ── Tip revenue from session payments ──
+        BigDecimal totalTipRevenue = paymentRepository.sumTipByRestaurantAndDateRange(
+                restaurantId, startDate, endDate
+        );
+        totalTipRevenue = (totalTipRevenue != null) ? totalTipRevenue : BigDecimal.ZERO;
+
+        // ── Items subtotal from finalized bills (billing-consistent source) ──
+        BigDecimal billedItemsRevenue = billRepository.sumItemsSubtotalByRestaurantAndDateRange(
+                restaurantId, startDate, endDate
+        );
+        billedItemsRevenue = (billedItemsRevenue != null) ? billedItemsRevenue : BigDecimal.ZERO;
+
+        // ── Total collected = billed + tips ──
+        BigDecimal totalCollected = totalBilledRevenue.add(totalTipRevenue);
+
+        log.debug("Overview calculated | totalOrders={} | doneOrders={} | cancelledOrders={} | grossRevenue={} | billedRevenue={} | chargesRevenue={} | tipRevenue={} | totalCollected={} | completionRate={}% | cancellationRate={}%",
+                totalOrders, doneOrders, cancelledOrders, grossRevenue, totalBilledRevenue, totalChargesRevenue, totalTipRevenue, totalCollected, completionRate, cancellationRate);
 
         return new OverviewDto(
                 totalOrders,
@@ -368,7 +387,10 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
                 totalBilledRevenue,
                 totalChargesRevenue,
                 averageBillValue,
-                finalizedBillsCount
+                finalizedBillsCount,
+                totalTipRevenue,
+                billedItemsRevenue,
+                totalCollected
         );
     }
 

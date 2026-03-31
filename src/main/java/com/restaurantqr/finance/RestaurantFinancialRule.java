@@ -28,7 +28,7 @@ public class RestaurantFinancialRule {
     @Column(name = "rule_type", nullable = false)
     private RuleType ruleType;
 
-    @Column(nullable = false, precision = 10, scale = 4)
+    @Column(name = "\"value\"", nullable = false, precision = 10, scale = 4)
     private BigDecimal value;
 
     @Column(name = "apply_order", nullable = false)

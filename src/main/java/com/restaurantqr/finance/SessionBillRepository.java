@@ -108,6 +108,24 @@ public interface SessionBillRepository extends JpaRepository<SessionBill, Long> 
             @Param("startDate") Instant startDate,
             @Param("endDate") Instant endDate
     );
+
+    /**
+     * Sum items_subtotal of all FINALIZED bills for a restaurant in a date range.
+     * Provides a billing-consistent items revenue figure (same source as charges/grand totals).
+     */
+    @Query("""
+        SELECT COALESCE(SUM(b.itemsSubtotal), 0)
+        FROM SessionBill b
+        WHERE b.restaurant.id = :restaurantId
+          AND b.status = 'FINALIZED'
+          AND b.tableSession.openedAt >= :startDate
+          AND b.tableSession.openedAt < :endDate
+    """)
+    BigDecimal sumItemsSubtotalByRestaurantAndDateRange(
+            @Param("restaurantId") Long restaurantId,
+            @Param("startDate") Instant startDate,
+            @Param("endDate") Instant endDate
+    );
 }
 
 

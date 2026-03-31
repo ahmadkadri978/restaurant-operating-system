@@ -25,8 +25,17 @@ public record InvoiceListDto(
         @Schema(description = "Session closed at")
         Instant sessionClosedAt,
 
-        @Schema(description = "Final total including all charges", example = "17850.00")
+        @Schema(description = "Items subtotal (food/drink only)", example = "15000.00")
+        BigDecimal itemsSubtotal,
+
+        @Schema(description = "Charges total (taxes/fees)", example = "2850.00")
+        BigDecimal chargesTotal,
+
+        @Schema(description = "Final total including all charges (items + charges)", example = "17850.00")
         BigDecimal grandTotal,
+
+        @Schema(description = "Tip/gratuity amount (0 if none)", example = "2000.00")
+        BigDecimal tipAmount,
 
         @Schema(description = "Currency code", example = "SYP")
         String currency,

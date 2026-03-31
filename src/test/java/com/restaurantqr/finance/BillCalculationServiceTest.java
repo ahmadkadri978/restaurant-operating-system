@@ -54,6 +54,9 @@ class BillCalculationServiceTest {
     private CustomerOrderRepository orderRepository;
 
     @Mock
+    private com.restaurantqr.order.OrderItemRepository orderItemRepository;
+
+    @Mock
     private RestaurantFinancialRuleRepository ruleRepository;
 
     @Mock
@@ -73,7 +76,7 @@ class BillCalculationServiceTest {
     @BeforeEach
     void setUp() {
         billService = new BillCalculationServiceImpl(
-                sessionRepository, orderRepository, ruleRepository, billRepository
+                sessionRepository, orderRepository, orderItemRepository, ruleRepository, billRepository
         );
 
         testRestaurant = new Restaurant();
@@ -977,5 +980,74 @@ class BillCalculationServiceTest {
             assertThat(bill.finalizedAt()).isNull();
         }
     }
-}
 
+    // ==================== M5: Cancelled Order Exclusion ====================
+
+    @Nested
+    @DisplayName("Cancelled Order Exclusion from Bill")
+    class CancelledOrderExclusionTests {
+
+        @Test
+        @DisplayName("Should exclude cancelled orders from subtotal calculation")
+        void shouldExcludeCancelledOrdersFromSubtotal() {
+            when(billRepository.findByTableSessionIdWithCharges(SESSION_ID)).thenReturn(Optional.empty());
+            when(sessionRepository.findById(SESSION_ID)).thenReturn(Optional.of(testSession));
+
+            // Only non-cancelled orders should be returned by the repo
+            List<CustomerOrder> nonCancelledOrders = List.of(
+                    makeOrder(1L, new BigDecimal("5000.00"), OrderStatus.DONE),
+                    makeOrder(2L, new BigDecimal("3000.00"), OrderStatus.SENT_TO_KITCHEN)
+            );
+            when(orderRepository.findByTableSessionIdAndStatusNot(SESSION_ID, OrderStatus.CANCELLED))
+                    .thenReturn(nonCancelledOrders);
+            setupDefaultRules();
+
+            SessionBillDto bill = billService.getOrComputeBill(SESSION_ID);
+
+            // 5000 + 3000 = 8000 (cancelled orders are excluded by the repository query)
+            assertThat(bill.itemsSubtotal()).isEqualByComparingTo("8000.00");
+        }
+
+        @Test
+        @DisplayName("Should compute zero subtotal when all orders are cancelled")
+        void shouldComputeZeroSubtotalWhenAllCancelled() {
+            when(billRepository.findByTableSessionIdWithCharges(SESSION_ID)).thenReturn(Optional.empty());
+            when(sessionRepository.findById(SESSION_ID)).thenReturn(Optional.of(testSession));
+
+            // Repository returns empty list since all orders are cancelled
+            when(orderRepository.findByTableSessionIdAndStatusNot(SESSION_ID, OrderStatus.CANCELLED))
+                    .thenReturn(List.of());
+            // Fallback also returns empty
+            when(orderRepository.findByTableIdAndCreatedAtBetweenAndStatusNot(
+                    eq(testTable.getId()), any(), any(), eq(OrderStatus.CANCELLED)))
+                    .thenReturn(List.of());
+            setupDefaultRules();
+
+            SessionBillDto bill = billService.getOrComputeBill(SESSION_ID);
+
+            assertThat(bill.itemsSubtotal()).isEqualByComparingTo("0.00");
+            assertThat(bill.grandTotal()).isEqualByComparingTo("0.00");
+        }
+
+        @Test
+        @DisplayName("Should apply financial rules correctly on non-cancelled orders only")
+        void shouldApplyRulesOnlyOnNonCancelledOrders() {
+            when(billRepository.findByTableSessionIdWithCharges(SESSION_ID)).thenReturn(Optional.empty());
+            when(sessionRepository.findById(SESSION_ID)).thenReturn(Optional.of(testSession));
+
+            // Only DONE order included (10000)
+            setupDefaultOrders(new BigDecimal("10000.00"));
+
+            RestaurantFinancialRule vatRule = makeRule(1L, "ضريبة", "VAT",
+                    RuleType.PERCENTAGE, "10.0000", 1, false);
+            setupDefaultRules(vatRule);
+
+            SessionBillDto bill = billService.getOrComputeBill(SESSION_ID);
+
+            // subtotal=10000, VAT=10%=1000, grand=11000
+            assertThat(bill.itemsSubtotal()).isEqualByComparingTo("10000.00");
+            assertThat(bill.chargesTotal()).isEqualByComparingTo("1000.00");
+            assertThat(bill.grandTotal()).isEqualByComparingTo("11000.00");
+        }
+    }
+}

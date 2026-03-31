@@ -52,7 +52,16 @@ public record OverviewDto(
         BigDecimal averageBillValue,
 
         @Schema(description = "Number of finalized bills in the period", example = "12")
-        Long finalizedBillsCount
+        Long finalizedBillsCount,
+
+        @Schema(description = "Total tip/gratuity revenue from session payments", example = "45000.00")
+        BigDecimal totalTipRevenue,
+
+        @Schema(description = "Items subtotal from finalized bills (billing-consistent source)", example = "1234.56")
+        BigDecimal billedItemsRevenue,
+
+        @Schema(description = "Total collected = billed total + tips (actual cash kept by restaurant)", example = "1545.00")
+        BigDecimal totalCollected
 ) {}
 
 

@@ -483,7 +483,8 @@ class OwnerE2EIntegrationTest {
                         new BigDecimal("96.00"), new BigDecimal("3.33"),
                         new BigDecimal("5000.00"), new BigDecimal("41.67"),
                         20L, 15L, 45L,
-                        BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, 0L
+                        BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, 0L,
+                        BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO
                 ),
                 List.of(new RevenuePointDto(startOfDay, new BigDecimal("5000.00"), 150L)),
                 List.of(

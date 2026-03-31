@@ -3,6 +3,7 @@ package com.restaurantqr.owner;
 import com.restaurantqr.auth.dto.AuthPrincipal;
 import com.restaurantqr.exception.BusinessRuleException;
 import com.restaurantqr.finance.SessionBillRepository;
+import com.restaurantqr.finance.SessionPaymentRepository;
 import com.restaurantqr.order.CustomerOrderRepository;
 import com.restaurantqr.order.OrderItemRepository;
 import com.restaurantqr.order.staff.OrderStatus;
@@ -66,6 +67,9 @@ class OwnerControllerFullIntegrationTest {
     @Mock
     private SessionBillRepository billRepository;
 
+    @Mock
+    private SessionPaymentRepository paymentRepository;
+
     private Restaurant testRestaurant;
     private Long restaurantId;
     private Authentication authentication;
@@ -85,7 +89,8 @@ class OwnerControllerFullIntegrationTest {
                 serviceCallRepository,
                 tableRepository,
                 sessionRepository,
-                billRepository
+                billRepository,
+                paymentRepository
         );
         
         // Create controller

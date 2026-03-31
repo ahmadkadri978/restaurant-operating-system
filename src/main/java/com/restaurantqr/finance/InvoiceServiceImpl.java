@@ -37,19 +37,22 @@ public class InvoiceServiceImpl implements InvoiceService {
     private final CustomerOrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final InvoicePdfService pdfService;
+    private final SessionPaymentRepository paymentRepository;
 
     public InvoiceServiceImpl(SessionInvoiceRepository invoiceRepository,
                               SessionBillRepository billRepository,
                               TableSessionRepository sessionRepository,
                               CustomerOrderRepository orderRepository,
                               OrderItemRepository orderItemRepository,
-                              InvoicePdfService pdfService) {
+                              InvoicePdfService pdfService,
+                              SessionPaymentRepository paymentRepository) {
         this.invoiceRepository = invoiceRepository;
         this.billRepository = billRepository;
         this.sessionRepository = sessionRepository;
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.pdfService = pdfService;
+        this.paymentRepository = paymentRepository;
     }
 
     @Override
@@ -134,7 +137,13 @@ public class InvoiceServiceImpl implements InvoiceService {
         List<SessionInvoice> invoices = invoiceRepository
                 .findByRestaurantIdAndDateRange(restaurantId, dayStart, dayEnd);
 
-        return invoices.stream().map(this::toListDto).toList();
+        // Batch-load payments to avoid N+1
+        Map<Long, BigDecimal> tipBySessionId = loadTipMap(invoices);
+
+        return invoices.stream()
+                .map(inv -> toListDto(inv, tipBySessionId.getOrDefault(
+                        inv.getTableSession().getId(), BigDecimal.ZERO)))
+                .toList();
     }
 
     @Override
@@ -148,7 +157,12 @@ public class InvoiceServiceImpl implements InvoiceService {
         }
 
         return invoiceRepository.findByRestaurantIdAndInvoiceNumber(restaurantId, invoiceNumber.trim())
-                .map(this::toListDto)
+                .map(inv -> {
+                    BigDecimal tip = paymentRepository.findByTableSessionId(inv.getTableSession().getId())
+                            .map(SessionPayment::getTipAmount)
+                            .orElse(BigDecimal.ZERO);
+                    return toListDto(inv, tip);
+                })
                 .map(List::of)
                 .orElse(List.of());
     }
@@ -173,9 +187,15 @@ public class InvoiceServiceImpl implements InvoiceService {
         // Load restaurant name for PDF header
         String restaurantName = invoice.getRestaurant().getName();
 
-        log.info("Generating PDF | invoiceId={} | invoiceNumber={}", invoiceId, invoice.getInvoiceNumber());
+        // Load payment record (may not exist for legacy closes without payment)
+        SessionPayment payment = paymentRepository.findByTableSessionId(
+                invoice.getTableSession().getId()
+        ).orElse(null);
 
-        return pdfService.render(invoice, charges, restaurantName);
+        log.info("Generating PDF | invoiceId={} | invoiceNumber={} | hasPayment={}",
+                invoiceId, invoice.getInvoiceNumber(), payment != null);
+
+        return pdfService.render(invoice, charges, restaurantName, payment);
     }
 
     // ==================== Private helpers ====================
@@ -235,7 +255,7 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .toList();
     }
 
-    private InvoiceListDto toListDto(SessionInvoice inv) {
+    private InvoiceListDto toListDto(SessionInvoice inv, BigDecimal tipAmount) {
         return new InvoiceListDto(
                 inv.getId(),
                 inv.getInvoiceNumber(),
@@ -243,10 +263,32 @@ public class InvoiceServiceImpl implements InvoiceService {
                 inv.getSessionCode(),
                 inv.getSessionOpenedAt(),
                 inv.getSessionClosedAt(),
+                inv.getItemsSubtotal(),
+                inv.getChargesTotal(),
                 inv.getGrandTotal(),
+                tipAmount != null ? tipAmount : BigDecimal.ZERO,
                 inv.getCurrency(),
                 inv.getCreatedAt()
         );
+    }
+
+    /**
+     * Batch-load tip amounts for a list of invoices.
+     * Returns a map of tableSessionId → tipAmount.
+     */
+    private Map<Long, BigDecimal> loadTipMap(List<SessionInvoice> invoices) {
+        if (invoices.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> sessionIds = invoices.stream()
+                .map(inv -> inv.getTableSession().getId())
+                .toList();
+        return paymentRepository.findByTableSessionIdIn(sessionIds).stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        p -> p.getTableSession().getId(),
+                        SessionPayment::getTipAmount,
+                        (a, b) -> a   // keep first if duplicate (shouldn't happen — 1:1)
+                ));
     }
 
     private ZoneId parseZone(String zone) {

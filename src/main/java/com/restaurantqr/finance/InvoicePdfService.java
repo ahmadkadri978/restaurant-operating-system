@@ -55,14 +55,16 @@ public class InvoicePdfService {
     private volatile BaseFont bfBold;
 
     /**
-     * Render a PDF for the given invoice, bill charges, and restaurant name.
+     * Render a PDF for the given invoice, bill charges, restaurant name, and optional payment info.
      *
      * @param invoice        the invoice entity (with items loaded)
      * @param charges        bill charges (taxes, fees, etc.)
      * @param restaurantName the restaurant display name (Arabic or otherwise)
+     * @param payment        optional payment record (may be null for legacy invoices)
      * @return PDF bytes
      */
-    public byte[] render(SessionInvoice invoice, List<SessionBillCharge> charges, String restaurantName) {
+    public byte[] render(SessionInvoice invoice, List<SessionBillCharge> charges,
+                         String restaurantName, SessionPayment payment) {
         try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
 
             Document doc = new Document(PageSize.A4, 40, 40, 36, 36);
@@ -279,6 +281,38 @@ public class InvoicePdfService {
             totalTbl.addCell(totalValueCell);
 
             doc.add(totalTbl);
+
+            // ═══════════════════════════════════════════════════════════
+            //  SECTION 8.5: Payment Details (if payment record exists)
+            // ═══════════════════════════════════════════════════════════
+            if (payment != null) {
+                doc.add(spacer(12));
+                doc.add(rtlSectionTitle("بيانات الدفع", fontSectionTitle));
+                doc.add(spacer(4));
+
+                Color paymentBg = new Color(240, 253, 244); // light green tint
+
+                PdfPTable payTbl = new PdfPTable(2);
+                payTbl.setWidthPercentage(100);
+                payTbl.setWidths(new float[]{2f, 4f});
+                payTbl.setRunDirection(PdfWriter.RUN_DIRECTION_RTL);
+
+                addSummaryRow(payTbl, "المبلغ المستلم",
+                        formatCurrency(payment.getAmountReceived(), invoice.getCurrency()),
+                        fontSubtotal, paymentBg);
+
+                if (payment.getTipAmount() != null && payment.getTipAmount().compareTo(BigDecimal.ZERO) > 0) {
+                    addSummaryRow(payTbl, "البقشيش",
+                            formatCurrency(payment.getTipAmount(), invoice.getCurrency()),
+                            fontCharge, paymentBg);
+                }
+
+                addSummaryRow(payTbl, "المبلغ المرتجع",
+                        formatCurrency(payment.getAmountReturned(), invoice.getCurrency()),
+                        fontSubtotal, paymentBg);
+
+                doc.add(payTbl);
+            }
 
             doc.add(spacer(28));
 

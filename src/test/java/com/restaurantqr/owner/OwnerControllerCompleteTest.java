@@ -58,7 +58,8 @@ class OwnerControllerCompleteTest {
                 new BigDecimal("1234.56"),
                 new BigDecimal("10.29"),
                 20L, 15L, 23L,
-                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, 0L
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, 0L,
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO
         );
 
         mockResponse = new OwnerDashboardResponse(

@@ -2,6 +2,7 @@ package com.restaurantqr.owner;
 
 import com.restaurantqr.exception.BusinessRuleException;
 import com.restaurantqr.finance.SessionBillRepository;
+import com.restaurantqr.finance.SessionPaymentRepository;
 import com.restaurantqr.order.CustomerOrderRepository;
 import com.restaurantqr.order.OrderItemRepository;
 import com.restaurantqr.order.staff.OrderStatus;
@@ -52,6 +53,9 @@ class OwnerDashboardServiceTest {
 
     @Mock
     private SessionBillRepository billRepository;
+
+    @Mock
+    private SessionPaymentRepository paymentRepository;
 
     @InjectMocks
     private OwnerDashboardServiceImpl dashboardService;
@@ -284,6 +288,14 @@ class OwnerDashboardServiceTest {
         when(sessionRepository.findPeakSessionHours(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
         when(sessionRepository.findCurrentlyOpenSessions(any())).thenReturn(new ArrayList<>());
 
+        // Bill + payment repositories
+        when(billRepository.sumGrandTotalByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(null);
+        when(billRepository.sumChargesTotalByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(null);
+        when(billRepository.countFinalizedBillsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(null);
+        when(billRepository.findChargesBreakdownByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(new ArrayList<>());
+        when(paymentRepository.sumTipByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(null);
+        when(billRepository.sumItemsSubtotalByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(null);
+
         // When
         OwnerDashboardResponse response = dashboardService.getDashboard(
                 restaurantId, DashboardPeriod.DAY, anchorDate, validZone
@@ -371,6 +383,14 @@ class OwnerDashboardServiceTest {
         when(sessionRepository.findTopTablesBySessionCount(any(), any(Instant.class), any(Instant.class), any())).thenReturn(null);
         when(sessionRepository.findPeakSessionHours(any(), anyLong(), anyLong())).thenReturn(null);
         when(sessionRepository.findCurrentlyOpenSessions(any())).thenReturn(null);
+
+        // Bill + payment repositories
+        when(billRepository.sumGrandTotalByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(BigDecimal.ZERO);
+        when(billRepository.sumChargesTotalByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(BigDecimal.ZERO);
+        when(billRepository.countFinalizedBillsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(billRepository.findChargesBreakdownByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(new ArrayList<>());
+        when(paymentRepository.sumTipByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(BigDecimal.ZERO);
+        when(billRepository.sumItemsSubtotalByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(BigDecimal.ZERO);
 
         // When
         OwnerDashboardResponse response = dashboardService.getDashboard(
@@ -509,6 +529,246 @@ class OwnerDashboardServiceTest {
 
     // ==================== Helper Methods ====================
 
+    // ==================== Data Aggregation Correctness Tests (Batch 3) ====================
+
+    @Test
+    @DisplayName("Should compute averageOrderValue = grossRevenue / doneOrders")
+    void shouldComputeAverageOrderValueCorrectly() {
+        // Given: 120 done orders, 1234.56 gross revenue → avg = 1234.56 / 120 = 10.29
+        setupMocksForSuccessfulDashboard();
+
+        // When
+        OwnerDashboardResponse response = dashboardService.getDashboard(
+                restaurantId, DashboardPeriod.DAY, anchorDate, validZone
+        );
+
+        // Then
+        OverviewDto overview = response.overview();
+        assertThat(overview.averageOrderValue())
+                .isEqualByComparingTo(new BigDecimal("10.29"));
+    }
+
+    @Test
+    @DisplayName("Should compute averageOrderValue = 0 when doneOrders = 0")
+    void shouldComputeAverageOrderValueZeroWhenNoDoneOrders() {
+        // Given
+        setupMocksWithEmptyLists();
+
+        // When
+        OwnerDashboardResponse response = dashboardService.getDashboard(
+                restaurantId, DashboardPeriod.DAY, anchorDate, validZone
+        );
+
+        // Then
+        assertThat(response.overview().averageOrderValue())
+                .isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    @DisplayName("Should compute completionRate = DONE / (DONE + CANCELLED) * 100")
+    void shouldComputeCompletionRateCorrectly() {
+        // Given: 120 done, 5 cancelled → 120/(120+5)*100 = 96.00
+        setupMocksForSuccessfulDashboard();
+
+        // When
+        OwnerDashboardResponse response = dashboardService.getDashboard(
+                restaurantId, DashboardPeriod.DAY, anchorDate, validZone
+        );
+
+        // Then
+        assertThat(response.overview().completionRate())
+                .isEqualByComparingTo(new BigDecimal("96.00"));
+    }
+
+    @Test
+    @DisplayName("Should compute cancellationRate = CANCELLED / total * 100")
+    void shouldComputeCancellationRateCorrectly() {
+        // Given: 5 cancelled out of 150 total → 5/150*100 = 3.33
+        setupMocksForSuccessfulDashboard();
+
+        // When
+        OwnerDashboardResponse response = dashboardService.getDashboard(
+                restaurantId, DashboardPeriod.DAY, anchorDate, validZone
+        );
+
+        // Then
+        assertThat(response.overview().cancellationRate())
+                .isEqualByComparingTo(new BigDecimal("3.33"));
+    }
+
+    @Test
+    @DisplayName("Should compute completionRate = 0 when no done or cancelled orders")
+    void shouldComputeCompletionRateZeroWhenNoOrders() {
+        // Given
+        setupMocksWithEmptyLists();
+
+        // When
+        OwnerDashboardResponse response = dashboardService.getDashboard(
+                restaurantId, DashboardPeriod.DAY, anchorDate, validZone
+        );
+
+        // Then
+        assertThat(response.overview().completionRate())
+                .isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(response.overview().cancellationRate())
+                .isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    @DisplayName("Should compute totalCollected = totalBilledRevenue + totalTipRevenue")
+    void shouldComputeTotalCollectedCorrectly() {
+        // Given
+        when(restaurantRepository.findById(restaurantId)).thenReturn(Optional.of(testRestaurant));
+
+        // Basic counts (need non-null)
+        when(orderRepository.countOrdersByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(10L);
+        when(orderRepository.countOrdersByRestaurantAndStatusAndDateRange(any(), any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(orderRepository.sumRevenueByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(BigDecimal.ZERO);
+        when(tableRepository.countActiveTablesByRestaurant(any())).thenReturn(0L);
+        when(orderRepository.countDistinctTablesWithOrders(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(serviceCallRepository.countServiceCallsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+
+        // Empty lists
+        when(orderRepository.countOrdersGroupedByStatus(any(), any(Instant.class), any(Instant.class))).thenReturn(new ArrayList<>());
+        when(orderItemRepository.findTopItemsByQuantity(any(), any(Instant.class), any(Instant.class), any())).thenReturn(new ArrayList<>());
+        when(orderItemRepository.findTopItemsByRevenue(any(), any(Instant.class), any(Instant.class), any())).thenReturn(new ArrayList<>());
+        when(orderRepository.findTopTablesByOrderCount(any(), any(Instant.class), any(Instant.class), any())).thenReturn(new ArrayList<>());
+        when(serviceCallRepository.countServiceCallsGroupedByType(any(), any(Instant.class), any(Instant.class))).thenReturn(new ArrayList<>());
+        lenient().when(orderRepository.findRevenueTrendByHour(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
+        lenient().when(orderRepository.findRevenueTrendByDay(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
+        lenient().when(orderRepository.findRevenueTrendByMonth(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
+        when(orderRepository.findPeakHoursByOrderCount(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
+
+        // Session analytics
+        when(sessionRepository.countSessionsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(sessionRepository.countOpenSessionsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(sessionRepository.countClosedSessionsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(sessionRepository.avgSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(null);
+        when(sessionRepository.maxSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(null);
+        when(sessionRepository.minSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(null);
+        when(sessionRepository.sumSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(sessionRepository.findTopTablesBySessionCount(any(), any(Instant.class), any(Instant.class), any())).thenReturn(new ArrayList<>());
+        when(sessionRepository.findPeakSessionHours(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
+        when(sessionRepository.findCurrentlyOpenSessions(any())).thenReturn(new ArrayList<>());
+
+        // BILL: billed revenue = 50000.00, charges = 10000.00
+        when(billRepository.sumGrandTotalByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class)))
+                .thenReturn(new BigDecimal("50000.00"));
+        when(billRepository.sumChargesTotalByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class)))
+                .thenReturn(new BigDecimal("10000.00"));
+        when(billRepository.countFinalizedBillsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class)))
+                .thenReturn(5L);
+        when(billRepository.findChargesBreakdownByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class)))
+                .thenReturn(new ArrayList<>());
+        when(billRepository.sumItemsSubtotalByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class)))
+                .thenReturn(new BigDecimal("40000.00"));
+
+        // TIP: 7500.00
+        when(paymentRepository.sumTipByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class)))
+                .thenReturn(new BigDecimal("7500.00"));
+
+        // When
+        OwnerDashboardResponse response = dashboardService.getDashboard(
+                restaurantId, DashboardPeriod.DAY, anchorDate, validZone
+        );
+
+        // Then: totalCollected = 50000 + 7500 = 57500
+        OverviewDto overview = response.overview();
+        assertThat(overview.totalBilledRevenue()).isEqualByComparingTo(new BigDecimal("50000.00"));
+        assertThat(overview.totalChargesRevenue()).isEqualByComparingTo(new BigDecimal("10000.00"));
+        assertThat(overview.totalTipRevenue()).isEqualByComparingTo(new BigDecimal("7500.00"));
+        assertThat(overview.billedItemsRevenue()).isEqualByComparingTo(new BigDecimal("40000.00"));
+        assertThat(overview.totalCollected()).isEqualByComparingTo(new BigDecimal("57500.00"));
+    }
+
+    @Test
+    @DisplayName("Should compute averageBillValue = totalBilledRevenue / finalizedBillsCount")
+    void shouldComputeAverageBillValueCorrectly() {
+        // Given
+        when(restaurantRepository.findById(restaurantId)).thenReturn(Optional.of(testRestaurant));
+
+        // Zero-value order counts (not relevant for this test)
+        when(orderRepository.countOrdersByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(orderRepository.countOrdersByRestaurantAndStatusAndDateRange(any(), any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(orderRepository.sumRevenueByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(BigDecimal.ZERO);
+        when(tableRepository.countActiveTablesByRestaurant(any())).thenReturn(0L);
+        when(orderRepository.countDistinctTablesWithOrders(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(serviceCallRepository.countServiceCallsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+
+        // Empty lists
+        when(orderRepository.countOrdersGroupedByStatus(any(), any(Instant.class), any(Instant.class))).thenReturn(new ArrayList<>());
+        when(orderItemRepository.findTopItemsByQuantity(any(), any(Instant.class), any(Instant.class), any())).thenReturn(new ArrayList<>());
+        when(orderItemRepository.findTopItemsByRevenue(any(), any(Instant.class), any(Instant.class), any())).thenReturn(new ArrayList<>());
+        when(orderRepository.findTopTablesByOrderCount(any(), any(Instant.class), any(Instant.class), any())).thenReturn(new ArrayList<>());
+        when(serviceCallRepository.countServiceCallsGroupedByType(any(), any(Instant.class), any(Instant.class))).thenReturn(new ArrayList<>());
+        lenient().when(orderRepository.findRevenueTrendByHour(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
+        lenient().when(orderRepository.findRevenueTrendByDay(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
+        lenient().when(orderRepository.findRevenueTrendByMonth(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
+        when(orderRepository.findPeakHoursByOrderCount(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
+
+        // Session analytics
+        when(sessionRepository.countSessionsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(sessionRepository.countOpenSessionsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(sessionRepository.countClosedSessionsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(sessionRepository.avgSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(null);
+        when(sessionRepository.maxSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(null);
+        when(sessionRepository.minSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(null);
+        when(sessionRepository.sumSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(sessionRepository.findTopTablesBySessionCount(any(), any(Instant.class), any(Instant.class), any())).thenReturn(new ArrayList<>());
+        when(sessionRepository.findPeakSessionHours(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
+        when(sessionRepository.findCurrentlyOpenSessions(any())).thenReturn(new ArrayList<>());
+
+        // BILL: 4 bills totaling 100000 → avg = 25000
+        when(billRepository.sumGrandTotalByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class)))
+                .thenReturn(new BigDecimal("100000.00"));
+        when(billRepository.sumChargesTotalByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class)))
+                .thenReturn(BigDecimal.ZERO);
+        when(billRepository.countFinalizedBillsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class)))
+                .thenReturn(4L);
+        when(billRepository.findChargesBreakdownByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class)))
+                .thenReturn(new ArrayList<>());
+        when(billRepository.sumItemsSubtotalByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class)))
+                .thenReturn(new BigDecimal("100000.00"));
+        when(paymentRepository.sumTipByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class)))
+                .thenReturn(BigDecimal.ZERO);
+
+        // When
+        OwnerDashboardResponse response = dashboardService.getDashboard(
+                restaurantId, DashboardPeriod.DAY, anchorDate, validZone
+        );
+
+        // Then: averageBillValue = 100000 / 4 = 25000
+        assertThat(response.overview().averageBillValue())
+                .isEqualByComparingTo(new BigDecimal("25000.00"));
+        assertThat(response.overview().finalizedBillsCount()).isEqualTo(4L);
+    }
+
+    @Test
+    @DisplayName("Should return overview with all counts populated from mocks")
+    void shouldReturnOverviewWithAllCountsPopulated() {
+        // Given
+        setupMocksForSuccessfulDashboard();
+
+        // When
+        OwnerDashboardResponse response = dashboardService.getDashboard(
+                restaurantId, DashboardPeriod.DAY, anchorDate, validZone
+        );
+
+        // Then: verify all overview fields match mocked data
+        OverviewDto overview = response.overview();
+        assertThat(overview.totalOrders()).isEqualTo(150L);
+        assertThat(overview.newOrders()).isEqualTo(10L);
+        assertThat(overview.sentToKitchenOrders()).isEqualTo(15L);
+        assertThat(overview.doneOrders()).isEqualTo(120L);
+        assertThat(overview.cancelledOrders()).isEqualTo(5L);
+        assertThat(overview.grossRevenue()).isEqualByComparingTo(new BigDecimal("1234.56"));
+        assertThat(overview.activeTablesCount()).isEqualTo(20L);
+        assertThat(overview.tablesWithOrdersCount()).isEqualTo(15L);
+        assertThat(overview.serviceCallsCount()).isEqualTo(23L);
+    }
+
+    // ==================== End Data Aggregation Correctness Tests ====================
+
     private void setupMocksForSuccessfulDashboard() {
         when(restaurantRepository.findById(restaurantId)).thenReturn(Optional.of(testRestaurant));
 
@@ -553,6 +813,10 @@ class OwnerDashboardServiceTest {
         when(billRepository.sumChargesTotalByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(BigDecimal.ZERO);
         when(billRepository.countFinalizedBillsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
         when(billRepository.findChargesBreakdownByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(new ArrayList<>());
+
+        // Mock payment repository (tip + items subtotal)
+        when(paymentRepository.sumTipByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(BigDecimal.ZERO);
+        when(billRepository.sumItemsSubtotalByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(BigDecimal.ZERO);
     }
 
     private void setupMocksWithEmptyLists() {
@@ -594,6 +858,10 @@ class OwnerDashboardServiceTest {
         when(billRepository.sumChargesTotalByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(BigDecimal.ZERO);
         when(billRepository.countFinalizedBillsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
         when(billRepository.findChargesBreakdownByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(new ArrayList<>());
+
+        // Mock payment repository (empty)
+        when(paymentRepository.sumTipByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(BigDecimal.ZERO);
+        when(billRepository.sumItemsSubtotalByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(BigDecimal.ZERO);
     }
 }
 

@@ -40,13 +40,19 @@ class TableE2EIntegrationTest {
         @Mock
         private StaffTableSessionService sessionService;
 
+        @Mock
+        private com.restaurantqr.finance.BillCalculationService billCalculationService;
+
+        @Mock
+        private TableSessionRepository sessionRepository;
+
         private Long restaurantId;
         private Authentication authentication;
 
         @BeforeEach
         void setUp() {
             restaurantId = 1L;
-            controller = new StaffTableController(sessionService);
+            controller = new StaffTableController(sessionService, billCalculationService, sessionRepository);
 
             // Setup authentication
             AuthPrincipal principal = new AuthPrincipal(1L, "ROLE_MANAGER", restaurantId);
@@ -388,9 +394,15 @@ class TableE2EIntegrationTest {
         @Mock
         private StaffTableSessionService sessionService;
 
+        @Mock
+        private com.restaurantqr.finance.BillCalculationService billCalculationService2;
+
+        @Mock
+        private TableSessionRepository sessionRepository2;
+
         @BeforeEach
         void setUp() {
-            controller = new StaffTableController(sessionService);
+            controller = new StaffTableController(sessionService, billCalculationService2, sessionRepository2);
         }
 
         @Test

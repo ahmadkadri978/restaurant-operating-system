@@ -2,5 +2,5 @@ apiVersion: v2
 name: backend-repo
 description: Syrian Order restaurant backend (REST API, orders, menu, FCM notifications)
 type: application
-version: 0.1.2
+version: 0.1.3
 appVersion: "backend-repo-611e0a9"

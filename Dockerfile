@@ -7,7 +7,7 @@ ENV TZ=Asia/Damascus
 WORKDIR /app
 
 # Copy application
-COPY target/*.jar app.jar
+COPY target/RestaurantQrApplication-0.0.1-SNAPSHOT.jar app.jar
 
 EXPOSE 8080
 

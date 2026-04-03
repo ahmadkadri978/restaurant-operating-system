@@ -1,7 +1,4 @@
 ---
-# MySQL 8.4 StatefulSet — dedicated instance for backend-repo.
-# Only backend-repo pods can reach this database (NetworkPolicy below).
-# Credentials come from backend-repo-db-credentials Secret (Helm-generated, cluster-only).
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -86,8 +83,6 @@ spec:
           requests:
             storage: 5Gi
 ---
-# Headless Service — gives backend-repo the stable DNS name:
-# backend-repo-mysql.<namespace>.svc.cluster.local:3306
 apiVersion: v1
 kind: Service
 metadata:
@@ -102,7 +97,6 @@ spec:
       targetPort: 3306
   clusterIP: None
 ---
-# Deny ALL ingress to the MySQL pod by default
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -115,7 +109,6 @@ spec:
   policyTypes:
     - Ingress
 ---
-# Allow ONLY backend-repo pods (same namespace) to connect on port 3306
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

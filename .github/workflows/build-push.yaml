@@ -62,7 +62,6 @@ jobs:
           if [ "$BRANCH" = "main" ]; then NAMESPACE="prod"; else NAMESPACE="dev"; fi
           echo "Sealing secrets for namespace: ${NAMESPACE}"
 
-          # Install kubeseal
           KUBESEAL_VERSION="0.27.3"
           curl -sL "https://github.com/bitnami-labs/sealed-secrets/releases/download/v${KUBESEAL_VERSION}/kubeseal-${KUBESEAL_VERSION}-linux-amd64.tar.gz" \
             | tar -xz kubeseal
@@ -80,7 +79,6 @@ jobs:
           rm -f /tmp/master.crt
           echo "Sealed secret written."
 
-      # Update image tag, bump chart version, commit everything.
       - name: Update chart and commit
         if: github.event_name == 'push'
         env:
@@ -106,6 +104,5 @@ jobs:
           git diff --cached --quiet && { echo "Nothing to commit"; exit 0; }
           git commit -m "chore: release backend-repo chart ${NEW_VERSION} with image ${IMAGE_TAG} [skip ci]"
 
-          # -Xtheirs: if sealed-secret.yaml conflicts, our freshly-sealed version wins
           git pull --rebase -Xtheirs origin "${GITHUB_REF_NAME}"
           git push

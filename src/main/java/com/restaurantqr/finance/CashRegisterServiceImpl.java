@@ -4,12 +4,16 @@ import com.restaurantqr.exception.BusinessRuleException;
 import com.restaurantqr.exception.ResourceNotFoundException;
 import com.restaurantqr.finance.dto.CashMovementDto;
 import com.restaurantqr.finance.dto.CashRegisterDto;
+import com.restaurantqr.finance.dto.CashRegisterPageResponse;
 import com.restaurantqr.restaurant.Restaurant;
 import com.restaurantqr.restaurant.RestaurantRepository;
 import com.restaurantqr.user.User;
 import com.restaurantqr.user.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -169,6 +173,20 @@ public class CashRegisterServiceImpl implements CashRegisterService {
                 .stream()
                 .map(this::toDtoWithTotals)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CashRegisterPageResponse getRegisterHistoryPaged(Long restaurantId, int page, int size) {
+        PageRequest pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by("closedAt").descending()
+        );
+        Page<CashRegisterDto> dtoPage = registerRepository
+                .findByRestaurantIdAndStatus(restaurantId, CashRegisterStatus.CLOSED, pageable)
+                .map(this::toDtoWithTotals);
+        return CashRegisterPageResponse.from(dtoPage);
     }
 
     @Override

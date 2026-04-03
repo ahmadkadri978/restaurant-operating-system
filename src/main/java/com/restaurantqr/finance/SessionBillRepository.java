@@ -35,15 +35,15 @@ public interface SessionBillRepository extends JpaRepository<SessionBill, Long> 
 
     /**
      * Sum grand_total of all FINALIZED bills for a restaurant in a date range.
-     * Uses the session's openedAt as the time anchor.
+     * Uses the bill's finalizedAt as the time anchor (per FINANCIAL_SYSTEM_MEMORY §4).
      */
     @Query("""
         SELECT COALESCE(SUM(b.grandTotal), 0)
         FROM SessionBill b
         WHERE b.restaurant.id = :restaurantId
           AND b.status = 'FINALIZED'
-          AND b.tableSession.openedAt >= :startDate
-          AND b.tableSession.openedAt < :endDate
+          AND b.finalizedAt >= :startDate
+          AND b.finalizedAt < :endDate
     """)
     BigDecimal sumGrandTotalByRestaurantAndDateRange(
             @Param("restaurantId") Long restaurantId,
@@ -59,8 +59,8 @@ public interface SessionBillRepository extends JpaRepository<SessionBill, Long> 
         FROM SessionBill b
         WHERE b.restaurant.id = :restaurantId
           AND b.status = 'FINALIZED'
-          AND b.tableSession.openedAt >= :startDate
-          AND b.tableSession.openedAt < :endDate
+          AND b.finalizedAt >= :startDate
+          AND b.finalizedAt < :endDate
     """)
     BigDecimal sumChargesTotalByRestaurantAndDateRange(
             @Param("restaurantId") Long restaurantId,
@@ -76,8 +76,8 @@ public interface SessionBillRepository extends JpaRepository<SessionBill, Long> 
         FROM SessionBill b
         WHERE b.restaurant.id = :restaurantId
           AND b.status = 'FINALIZED'
-          AND b.tableSession.openedAt >= :startDate
-          AND b.tableSession.openedAt < :endDate
+          AND b.finalizedAt >= :startDate
+          AND b.finalizedAt < :endDate
     """)
     Long countFinalizedBillsByRestaurantAndDateRange(
             @Param("restaurantId") Long restaurantId,
@@ -98,8 +98,8 @@ public interface SessionBillRepository extends JpaRepository<SessionBill, Long> 
         JOIN c.sessionBill b
         WHERE b.restaurant.id = :restaurantId
           AND b.status = 'FINALIZED'
-          AND b.tableSession.openedAt >= :startDate
-          AND b.tableSession.openedAt < :endDate
+          AND b.finalizedAt >= :startDate
+          AND b.finalizedAt < :endDate
         GROUP BY c.ruleNameAr, c.ruleType
         ORDER BY SUM(c.computedAmount) DESC
     """)
@@ -118,8 +118,8 @@ public interface SessionBillRepository extends JpaRepository<SessionBill, Long> 
         FROM SessionBill b
         WHERE b.restaurant.id = :restaurantId
           AND b.status = 'FINALIZED'
-          AND b.tableSession.openedAt >= :startDate
-          AND b.tableSession.openedAt < :endDate
+          AND b.finalizedAt >= :startDate
+          AND b.finalizedAt < :endDate
     """)
     BigDecimal sumItemsSubtotalByRestaurantAndDateRange(
             @Param("restaurantId") Long restaurantId,
@@ -127,5 +127,4 @@ public interface SessionBillRepository extends JpaRepository<SessionBill, Long> 
             @Param("endDate") Instant endDate
     );
 }
-
 

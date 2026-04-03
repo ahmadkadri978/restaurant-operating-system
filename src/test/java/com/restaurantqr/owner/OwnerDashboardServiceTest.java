@@ -532,9 +532,9 @@ class OwnerDashboardServiceTest {
     // ==================== Data Aggregation Correctness Tests (Batch 3) ====================
 
     @Test
-    @DisplayName("Should compute averageOrderValue = grossRevenue / doneOrders")
+    @DisplayName("Should compute averageOrderValue = grossRevenue / nonCancelledOrders")
     void shouldComputeAverageOrderValueCorrectly() {
-        // Given: 120 done orders, 1234.56 gross revenue → avg = 1234.56 / 120 = 10.29
+        // Given: 150 total, 5 cancelled → 145 non-cancelled; grossRevenue = 1234.56 → avg ≈ 8.51
         setupMocksForSuccessfulDashboard();
 
         // When
@@ -545,7 +545,7 @@ class OwnerDashboardServiceTest {
         // Then
         OverviewDto overview = response.overview();
         assertThat(overview.averageOrderValue())
-                .isEqualByComparingTo(new BigDecimal("10.29"));
+                .isEqualByComparingTo(new BigDecimal("8.51"));
     }
 
     @Test
@@ -701,6 +701,8 @@ class OwnerDashboardServiceTest {
         when(orderItemRepository.findTopItemsByRevenue(any(), any(Instant.class), any(Instant.class), any())).thenReturn(new ArrayList<>());
         when(orderRepository.findTopTablesByOrderCount(any(), any(Instant.class), any(Instant.class), any())).thenReturn(new ArrayList<>());
         when(serviceCallRepository.countServiceCallsGroupedByType(any(), any(Instant.class), any(Instant.class))).thenReturn(new ArrayList<>());
+        // Use lenient() for period-dependent methods since not all are called in each test
+        // Changed from Instant to Long (epoch seconds)
         lenient().when(orderRepository.findRevenueTrendByHour(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
         lenient().when(orderRepository.findRevenueTrendByDay(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
         lenient().when(orderRepository.findRevenueTrendByMonth(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
@@ -863,8 +865,164 @@ class OwnerDashboardServiceTest {
         when(paymentRepository.sumTipByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(BigDecimal.ZERO);
         when(billRepository.sumItemsSubtotalByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(BigDecimal.ZERO);
     }
+
+    @Test
+    @DisplayName("Billing metrics should use bill finalizedAt as time boundary")
+    void billingMetricsShouldUseBillFinalizedAtAsTimeBoundary() {
+        // Given
+        when(restaurantRepository.findById(restaurantId)).thenReturn(Optional.of(testRestaurant));
+
+        // Stub minimal order/session/service data so overview/session parts don't NPE
+        when(orderRepository.countOrdersByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(orderRepository.countOrdersByRestaurantAndStatusAndDateRange(any(), any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(orderRepository.sumRevenueByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(BigDecimal.ZERO);
+        when(tableRepository.countActiveTablesByRestaurant(any())).thenReturn(0L);
+        when(orderRepository.countDistinctTablesWithOrders(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(serviceCallRepository.countServiceCallsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+
+        when(orderRepository.countOrdersGroupedByStatus(any(), any(Instant.class), any(Instant.class))).thenReturn(new ArrayList<>());
+        when(orderItemRepository.findTopItemsByQuantity(any(), any(Instant.class), any(Instant.class), any())).thenReturn(new ArrayList<>());
+        when(orderItemRepository.findTopItemsByRevenue(any(), any(Instant.class), any(Instant.class), any())).thenReturn(new ArrayList<>());
+        when(orderRepository.findTopTablesByOrderCount(any(), any(Instant.class), any(Instant.class), any())).thenReturn(new ArrayList<>());
+        when(serviceCallRepository.countServiceCallsGroupedByType(any(), any(Instant.class), any(Instant.class))).thenReturn(new ArrayList<>());
+        lenient().when(orderRepository.findRevenueTrendByHour(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
+        lenient().when(orderRepository.findRevenueTrendByDay(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
+        lenient().when(orderRepository.findRevenueTrendByMonth(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
+        when(orderRepository.findPeakHoursByOrderCount(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
+
+        when(sessionRepository.countSessionsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(sessionRepository.countOpenSessionsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(sessionRepository.countClosedSessionsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(sessionRepository.avgSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(null);
+        when(sessionRepository.maxSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(null);
+        when(sessionRepository.minSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(null);
+        when(sessionRepository.sumSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(sessionRepository.findTopTablesBySessionCount(any(), any(Instant.class), any(Instant.class), any())).thenReturn(new ArrayList<>());
+        when(sessionRepository.findPeakSessionHours(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
+        when(sessionRepository.findCurrentlyOpenSessions(any())).thenReturn(new ArrayList<>());
+
+        // For this test we don't care about tips or items subtotal
+        when(paymentRepository.sumTipByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(BigDecimal.ZERO);
+        when(billRepository.sumItemsSubtotalByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(BigDecimal.ZERO);
+        when(billRepository.findChargesBreakdownByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(new ArrayList<>());
+
+        // Capture the start/end instants used for billing queries
+        final Instant[] capturedStart = new Instant[1];
+        final Instant[] capturedEnd = new Instant[1];
+
+        when(billRepository.sumGrandTotalByRestaurantAndDateRange(eq(restaurantId), any(Instant.class), any(Instant.class)))
+                .thenAnswer(invocation -> {
+                    capturedStart[0] = invocation.getArgument(1, Instant.class);
+                    capturedEnd[0] = invocation.getArgument(2, Instant.class);
+
+                    // Simulate two bills:
+                    // Bill A: finalized exactly at capturedStart + 12h (inside window) → 100
+                    // Bill B: finalized exactly at capturedEnd (exclusive) → 200 (outside window)
+                    Instant within = capturedStart[0].plus(Duration.ofHours(12));
+                    Instant boundary = capturedEnd[0];
+
+                    BigDecimal total = BigDecimal.ZERO;
+                    if (!within.isBefore(capturedStart[0]) && within.isBefore(capturedEnd[0])) {
+                        total = total.add(new BigDecimal("100.00"));
+                    }
+                    if (!boundary.isBefore(capturedStart[0]) && boundary.isBefore(capturedEnd[0])) {
+                        total = total.add(new BigDecimal("200.00"));
+                    }
+                    return total;
+                });
+
+        when(billRepository.sumChargesTotalByRestaurantAndDateRange(eq(restaurantId), any(Instant.class), any(Instant.class)))
+                .thenReturn(BigDecimal.ZERO);
+        when(billRepository.countFinalizedBillsByRestaurantAndDateRange(eq(restaurantId), any(Instant.class), any(Instant.class)))
+                .thenReturn(1L);
+
+        // When
+        OwnerDashboardResponse response = dashboardService.getDashboard(
+                restaurantId, DashboardPeriod.DAY, anchorDate, validZone
+        );
+
+        // Then
+        assertThat(capturedStart[0]).isNotNull();
+        assertThat(capturedEnd[0]).isNotNull();
+        // Only the in-window bill (100) should be counted
+        assertThat(response.overview().totalBilledRevenue())
+                .isEqualByComparingTo(new BigDecimal("100.00"));
+    }
+
+    @Test
+    @DisplayName("Tip metrics should use payment paidAt as time boundary")
+    void tipMetricsShouldUsePaymentPaidAtAsTimeBoundary() {
+        // Given
+        when(restaurantRepository.findById(restaurantId)).thenReturn(Optional.of(testRestaurant));
+
+        // Minimal order/bill/session data
+        when(orderRepository.countOrdersByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(orderRepository.countOrdersByRestaurantAndStatusAndDateRange(any(), any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(orderRepository.sumRevenueByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(BigDecimal.ZERO);
+        when(tableRepository.countActiveTablesByRestaurant(any())).thenReturn(0L);
+        when(orderRepository.countDistinctTablesWithOrders(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(serviceCallRepository.countServiceCallsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+
+        when(orderRepository.countOrdersGroupedByStatus(any(), any(Instant.class), any(Instant.class))).thenReturn(new ArrayList<>());
+        when(orderItemRepository.findTopItemsByQuantity(any(), any(Instant.class), any(Instant.class), any())).thenReturn(new ArrayList<>());
+        when(orderItemRepository.findTopItemsByRevenue(any(), any(Instant.class), any(Instant.class), any())).thenReturn(new ArrayList<>());
+        when(orderRepository.findTopTablesByOrderCount(any(), any(Instant.class), any(Instant.class), any())).thenReturn(new ArrayList<>());
+        when(serviceCallRepository.countServiceCallsGroupedByType(any(), any(Instant.class), any(Instant.class))).thenReturn(new ArrayList<>());
+        lenient().when(orderRepository.findRevenueTrendByHour(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
+        lenient().when(orderRepository.findRevenueTrendByDay(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
+        lenient().when(orderRepository.findRevenueTrendByMonth(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
+        when(orderRepository.findPeakHoursByOrderCount(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
+
+        when(sessionRepository.countSessionsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(sessionRepository.countOpenSessionsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(sessionRepository.countClosedSessionsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(sessionRepository.avgSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(null);
+        when(sessionRepository.maxSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(null);
+        when(sessionRepository.minSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(null);
+        when(sessionRepository.sumSessionDurationByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(sessionRepository.findTopTablesBySessionCount(any(), any(Instant.class), any(Instant.class), any())).thenReturn(new ArrayList<>());
+        when(sessionRepository.findPeakSessionHours(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
+        when(sessionRepository.findCurrentlyOpenSessions(any())).thenReturn(new ArrayList<>());
+
+        when(billRepository.sumGrandTotalByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(BigDecimal.ZERO);
+        when(billRepository.sumChargesTotalByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(BigDecimal.ZERO);
+        when(billRepository.countFinalizedBillsByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(0L);
+        when(billRepository.findChargesBreakdownByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(new ArrayList<>());
+        when(billRepository.sumItemsSubtotalByRestaurantAndDateRange(any(), any(Instant.class), any(Instant.class))).thenReturn(BigDecimal.ZERO);
+
+        final Instant[] capturedStart = new Instant[1];
+        final Instant[] capturedEnd = new Instant[1];
+
+        when(paymentRepository.sumTipByRestaurantAndDateRange(eq(restaurantId), any(Instant.class), any(Instant.class)))
+                .thenAnswer(invocation -> {
+                    capturedStart[0] = invocation.getArgument(1, Instant.class);
+                    capturedEnd[0] = invocation.getArgument(2, Instant.class);
+
+                    // Payment A: paid at middle of window → 30
+                    // Payment B: paid exactly at end (exclusive) → 70 (outside)
+                    Instant inWindow = capturedStart[0].plus(Duration.ofHours(8));
+                    Instant boundary = capturedEnd[0];
+
+                    BigDecimal total = BigDecimal.ZERO;
+                    if (!inWindow.isBefore(capturedStart[0]) && inWindow.isBefore(capturedEnd[0])) {
+                        total = total.add(new BigDecimal("30.00"));
+                    }
+                    if (!boundary.isBefore(capturedStart[0]) && boundary.isBefore(capturedEnd[0])) {
+                        total = total.add(new BigDecimal("70.00"));
+                    }
+                    return total;
+                });
+
+        // When
+        OwnerDashboardResponse response = dashboardService.getDashboard(
+                restaurantId, DashboardPeriod.DAY, anchorDate, validZone
+        );
+
+        // Then
+        assertThat(capturedStart[0]).isNotNull();
+        assertThat(capturedEnd[0]).isNotNull();
+        // Only the in-window payment (30) should be counted
+        assertThat(response.overview().totalTipRevenue())
+                .isEqualByComparingTo(new BigDecimal("30.00"));
+    }
 }
-
-
-
-

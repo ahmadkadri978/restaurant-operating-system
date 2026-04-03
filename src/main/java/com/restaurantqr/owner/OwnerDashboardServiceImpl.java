@@ -289,11 +289,11 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
         );
         grossRevenue = (grossRevenue != null) ? grossRevenue : BigDecimal.ZERO;
 
-        // Calculate average order value (revenue / done orders)
+        long nonCancelledOrders = totalOrders - cancelledOrders;
         BigDecimal averageOrderValue = BigDecimal.ZERO;
-        if (doneOrders > 0) {
+        if (nonCancelledOrders > 0) {
             averageOrderValue = grossRevenue
-                    .divide(BigDecimal.valueOf(doneOrders), 2, RoundingMode.HALF_UP);
+                    .divide(BigDecimal.valueOf(nonCancelledOrders), 2, RoundingMode.HALF_UP);
         }
 
         // Calculate completion rate: DONE / (DONE + CANCELLED) * 100
@@ -668,5 +668,4 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
         );
     }
 }
-
 

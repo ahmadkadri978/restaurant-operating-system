@@ -2,6 +2,7 @@ package com.restaurantqr.finance;
 
 import com.restaurantqr.finance.dto.CashMovementDto;
 import com.restaurantqr.finance.dto.CashRegisterDto;
+import com.restaurantqr.finance.dto.CashRegisterPageResponse;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -36,6 +37,16 @@ public interface CashRegisterService {
      * List closed register sessions (history) for the owner.
      */
     List<CashRegisterDto> getRegisterHistory(Long restaurantId);
+
+    /**
+     * Paginated list of closed register sessions for the owner.
+     * Fetches only one page from the DB; does NOT load the full dataset.
+     *
+     * @param restaurantId owner's restaurant
+     * @param page         0-based page index
+     * @param size         page size (1–50)
+     */
+    CashRegisterPageResponse getRegisterHistoryPaged(Long restaurantId, int page, int size);
 
     /**
      * Get a specific register session by ID (with full details).

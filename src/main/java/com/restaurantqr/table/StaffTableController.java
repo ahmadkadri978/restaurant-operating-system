@@ -104,10 +104,14 @@ public class StaffTableController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @Deprecated
     @Operation(
-            summary = "Close table session (remove code)",
+            summary = "Close table session (legacy)",
             description = """
-                    Closes the session for a given table by clearing sessionCode and sessionOpenedAt.
+                    Legacy endpoint: closes the session for a given table by clearing sessionCode and sessionOpenedAt.
+                    Maintained for backward compatibility. New clients should use /tables/{tableId}/session/close-with-payment
+                    (even for zero-total sessions with amountReceived=0, tipAmount=0), which records a SessionPayment.
+                    The legacy path now also records a zero-value SessionPayment when a finalized bill exists.
                     """,
             security = @SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
     )

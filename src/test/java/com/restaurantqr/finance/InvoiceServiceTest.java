@@ -46,6 +46,7 @@ class InvoiceServiceTest {
     @Mock private OrderItemRepository orderItemRepository;
     @Mock private InvoicePdfService pdfService;
     @Mock private SessionPaymentRepository paymentRepository;
+    @Mock private InvoiceCounterRepository invoiceCounterRepository;
 
     private InvoiceServiceImpl service;
 
@@ -57,7 +58,8 @@ class InvoiceServiceTest {
     void setUp() {
         service = new InvoiceServiceImpl(
                 invoiceRepository, billRepository, sessionRepository,
-                orderRepository, orderItemRepository, pdfService, paymentRepository
+                orderRepository, orderItemRepository, pdfService, paymentRepository,
+                invoiceCounterRepository
         );
 
         testRestaurant = new Restaurant();
@@ -323,8 +325,10 @@ class InvoiceServiceTest {
         @Test
         @DisplayName("Should generate INV-YYYYMMDD-001 format for first invoice of the day")
         void shouldGenerateFirstInvoiceNumber() {
-            when(invoiceRepository.countByRestaurantIdAndDay(eq(RESTAURANT_ID), any(Instant.class), any(Instant.class)))
-                    .thenReturn(0L);
+            when(invoiceCounterRepository.reserveNextSequence(eq(RESTAURANT_ID), anyString()))
+                    .thenReturn(1);
+            when(invoiceCounterRepository.findByRestaurantIdAndDateStr(eq(RESTAURANT_ID), anyString()))
+                    .thenReturn(Optional.of(createInvoiceCounter(1)));
 
             SessionInvoice result = service.generateInvoice(SESSION_ID);
 
@@ -334,8 +338,10 @@ class InvoiceServiceTest {
         @Test
         @DisplayName("Should increment sequence based on existing count for the day")
         void shouldIncrementSequenceNumber() {
-            when(invoiceRepository.countByRestaurantIdAndDay(eq(RESTAURANT_ID), any(Instant.class), any(Instant.class)))
-                    .thenReturn(4L);
+            when(invoiceCounterRepository.reserveNextSequence(eq(RESTAURANT_ID), anyString()))
+                    .thenReturn(1);
+            when(invoiceCounterRepository.findByRestaurantIdAndDateStr(eq(RESTAURANT_ID), anyString()))
+                    .thenReturn(Optional.of(createInvoiceCounter(5)));
 
             SessionInvoice result = service.generateInvoice(SESSION_ID);
 
@@ -345,8 +351,10 @@ class InvoiceServiceTest {
         @Test
         @DisplayName("Should use Asia/Damascus timezone for date part")
         void shouldUseDamascusTimezone() {
-            when(invoiceRepository.countByRestaurantIdAndDay(eq(RESTAURANT_ID), any(Instant.class), any(Instant.class)))
-                    .thenReturn(0L);
+            when(invoiceCounterRepository.reserveNextSequence(eq(RESTAURANT_ID), anyString()))
+                    .thenReturn(1);
+            when(invoiceCounterRepository.findByRestaurantIdAndDateStr(eq(RESTAURANT_ID), anyString()))
+                    .thenReturn(Optional.of(createInvoiceCounter(1)));
 
             SessionInvoice result = service.generateInvoice(SESSION_ID);
 
@@ -391,8 +399,10 @@ class InvoiceServiceTest {
             when(invoiceRepository.findByTableSessionId(SESSION_ID)).thenReturn(Optional.empty());
             when(sessionRepository.findById(SESSION_ID)).thenReturn(Optional.of(closedSession));
             when(billRepository.findByTableSessionIdWithCharges(SESSION_ID)).thenReturn(Optional.of(finalizedBill));
-            when(invoiceRepository.countByRestaurantIdAndDay(eq(RESTAURANT_ID), any(Instant.class), any(Instant.class)))
-                    .thenReturn(0L);
+            when(invoiceCounterRepository.reserveNextSequence(eq(RESTAURANT_ID), anyString()))
+                    .thenReturn(1);
+            when(invoiceCounterRepository.findByRestaurantIdAndDateStr(eq(RESTAURANT_ID), anyString()))
+                    .thenReturn(Optional.of(createInvoiceCounter(1)));
             when(invoiceRepository.save(any(SessionInvoice.class))).thenAnswer(inv -> {
                 SessionInvoice si = inv.getArgument(0);
                 si.setId(200L);
@@ -532,6 +542,10 @@ class InvoiceServiceTest {
         when(inv.getTableSession()).thenReturn(ts);
 
         return inv;
+    }
+
+    private InvoiceCounter createInvoiceCounter(int lastSeq) {
+        return new InvoiceCounter(RESTAURANT_ID, "20260401", lastSeq);
     }
 }
 

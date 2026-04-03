@@ -38,6 +38,7 @@ public class InvoiceServiceImpl implements InvoiceService {
     private final OrderItemRepository orderItemRepository;
     private final InvoicePdfService pdfService;
     private final SessionPaymentRepository paymentRepository;
+    private final InvoiceCounterRepository invoiceCounterRepository;
 
     public InvoiceServiceImpl(SessionInvoiceRepository invoiceRepository,
                               SessionBillRepository billRepository,
@@ -45,7 +46,8 @@ public class InvoiceServiceImpl implements InvoiceService {
                               CustomerOrderRepository orderRepository,
                               OrderItemRepository orderItemRepository,
                               InvoicePdfService pdfService,
-                              SessionPaymentRepository paymentRepository) {
+                              SessionPaymentRepository paymentRepository,
+                              InvoiceCounterRepository invoiceCounterRepository) {
         this.invoiceRepository = invoiceRepository;
         this.billRepository = billRepository;
         this.sessionRepository = sessionRepository;
@@ -53,6 +55,7 @@ public class InvoiceServiceImpl implements InvoiceService {
         this.orderItemRepository = orderItemRepository;
         this.pdfService = pdfService;
         this.paymentRepository = paymentRepository;
+        this.invoiceCounterRepository = invoiceCounterRepository;
     }
 
     @Override
@@ -208,11 +211,13 @@ public class InvoiceServiceImpl implements InvoiceService {
         LocalDate today = now.atZone(zoneId).toLocalDate();
         String dateStr = today.format(DATE_FMT);
 
-        Instant dayStart = today.atStartOfDay(zoneId).toInstant();
-        Instant dayEnd = today.plusDays(1).atStartOfDay(zoneId).toInstant();
+        invoiceCounterRepository.reserveNextSequence(restaurantId, dateStr);
 
-        long count = invoiceRepository.countByRestaurantIdAndDay(restaurantId, dayStart, dayEnd);
-        int seq = (int) count + 1;
+        int seq = invoiceCounterRepository.findByRestaurantIdAndDateStr(restaurantId, dateStr)
+                .map(InvoiceCounter::getLastSeq)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Failed to load reserved invoice counter for restaurant="
+                                + restaurantId + " date=" + dateStr));
 
         return String.format("INV-%s-%03d", dateStr, seq);
     }

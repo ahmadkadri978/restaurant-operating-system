@@ -324,7 +324,7 @@ class OwnerControllerFullIntegrationTest {
             assertThat(response.overview().completionRate()).isEqualByComparingTo(new BigDecimal("96.00"));
             assertThat(response.overview().cancellationRate()).isEqualByComparingTo(new BigDecimal("3.33"));
             assertThat(response.overview().grossRevenue()).isEqualByComparingTo(new BigDecimal("1234.56"));
-            assertThat(response.overview().averageOrderValue()).isEqualByComparingTo(new BigDecimal("10.29"));
+            assertThat(response.overview().averageOrderValue()).isEqualByComparingTo(new BigDecimal("8.51"));
             assertThat(response.overview().activeTablesCount()).isEqualTo(20L);
             assertThat(response.overview().tablesWithOrdersCount()).isEqualTo(15L);
             assertThat(response.overview().serviceCallsCount()).isEqualTo(23L);

@@ -3,8 +3,9 @@ package com.restaurantqr.finance;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -26,6 +27,12 @@ public interface CashRegisterSessionRepository extends JpaRepository<CashRegiste
      * List closed register sessions for a restaurant, ordered by most recent first.
      */
     List<CashRegisterSession> findByRestaurantIdAndStatusOrderByClosedAtDesc(Long restaurantId, CashRegisterStatus status);
+
+    /**
+     * Paginated version: closed register sessions for a restaurant.
+     * Ordering is delegated to the Pageable (caller passes Sort.by("closedAt").descending()).
+     */
+    Page<CashRegisterSession> findByRestaurantIdAndStatus(Long restaurantId, CashRegisterStatus status, Pageable pageable);
 
     /**
      * List register sessions for a restaurant within a date range.

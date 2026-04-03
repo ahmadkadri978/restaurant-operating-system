@@ -24,14 +24,14 @@ public interface SessionPaymentRepository extends JpaRepository<SessionPayment, 
 
     /**
      * Sum tip_amount of all payments for a restaurant in a date range.
-     * Uses the session's openedAt as the time anchor (consistent with bill queries).
+     * Uses the payment's paidAt as the time anchor (per FINANCIAL_SYSTEM_MEMORY §4).
      */
     @Query("""
         SELECT COALESCE(SUM(p.tipAmount), 0)
         FROM SessionPayment p
         WHERE p.restaurant.id = :restaurantId
-          AND p.tableSession.openedAt >= :startDate
-          AND p.tableSession.openedAt < :endDate
+          AND p.paidAt >= :startDate
+          AND p.paidAt < :endDate
     """)
     BigDecimal sumTipByRestaurantAndDateRange(
             @Param("restaurantId") Long restaurantId,

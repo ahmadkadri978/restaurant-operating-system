@@ -374,6 +374,51 @@ class StaffTableSessionServiceTest {
             assertThatThrownBy(() -> service.closeSession(RESTAURANT_ID, null))
                     .isInstanceOf(BusinessRuleException.class);
         }
+
+        @Test
+        @DisplayName("Should create zero-value payment when bill finalized in legacy close")
+        void shouldCreateZeroValuePaymentWhenBillFinalized() {
+            when(sessionRepository.findOpenSessionByTableId(TABLE_ID)).thenReturn(Optional.of(testSession));
+            when(billCalculationService.finalizeBill(testSession.getId())).thenReturn(testBill);
+            when(invoiceService.generateInvoice(testSession.getId())).thenReturn(testInvoice);
+
+            service.closeSession(RESTAURANT_ID, TABLE_ID);
+
+            verify(paymentRepository).existsByTableSessionId(testSession.getId());
+            verify(paymentRepository).save(argThat(p -> {
+                assertThat(p.getTableSession()).isEqualTo(testSession);
+                assertThat(p.getSessionBill()).isEqualTo(testBill);
+                assertThat(p.getGrandTotal()).isEqualTo(testBill.getGrandTotal());
+                assertThat(p.getAmountReceived()).isEqualTo(testBill.getGrandTotal());
+                assertThat(p.getAmountReturned()).isZero();
+                assertThat(p.getTipAmount()).isZero();
+                return true;
+            }));
+        }
+
+        @Test
+        @DisplayName("Should not create payment when bill finalization fails in legacy close")
+        void shouldNotCreatePaymentWhenBillFails() {
+            when(sessionRepository.findOpenSessionByTableId(TABLE_ID)).thenReturn(Optional.of(testSession));
+            when(billCalculationService.finalizeBill(testSession.getId()))
+                    .thenThrow(new RuntimeException("Bill computation error"));
+
+            service.closeSession(RESTAURANT_ID, TABLE_ID);
+
+            verify(paymentRepository, never()).existsByTableSessionId(anyLong());
+            verify(paymentRepository, never()).save(any(SessionPayment.class));
+        }
+
+        @Test
+        @DisplayName("Should not create payment when no session history record exists in legacy close")
+        void shouldNotCreatePaymentWhenNoSessionHistoryLegacy() {
+            when(sessionRepository.findOpenSessionByTableId(TABLE_ID)).thenReturn(Optional.empty());
+
+            service.closeSession(RESTAURANT_ID, TABLE_ID);
+
+            verify(paymentRepository, never()).existsByTableSessionId(anyLong());
+            verify(paymentRepository, never()).save(any(SessionPayment.class));
+        }
     }
 
     @Nested
@@ -546,7 +591,6 @@ class StaffTableSessionServiceTest {
         }
     }
 }
-
 
 
 

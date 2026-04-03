@@ -180,9 +180,9 @@ public class StaffTableSessionService {
             log.debug("Session history closed | tableId={} | sessionId={} | durationMinutes={}",
                     tableId, session.getId(), session.getDurationMinutes());
 
-            // ✅ Finalize the session bill (snapshot financial rules + compute totals)
+            SessionBill bill = null;
             try {
-                billCalculationService.finalizeBill(session.getId());
+                bill = billCalculationService.finalizeBill(session.getId());
                 log.info("Session bill finalized | tableId={} | sessionId={}", tableId, session.getId());
             } catch (Exception e) {
                 // Bill finalization failure should not block session close
@@ -190,7 +190,6 @@ public class StaffTableSessionService {
                         session.getId(), tableId, e.getMessage(), e);
             }
 
-            // ✅ Generate invoice (snapshot all session data for formal document)
             try {
                 invoiceService.generateInvoice(session.getId());
                 log.info("Invoice generated | tableId={} | sessionId={}", tableId, session.getId());
@@ -198,6 +197,33 @@ public class StaffTableSessionService {
                 // Invoice generation failure should not block session close
                 log.error("Failed to generate invoice for session {} | tableId={} | error={}",
                         session.getId(), tableId, e.getMessage(), e);
+            }
+
+            if (bill != null && !paymentRepository.existsByTableSessionId(session.getId())) {
+                try {
+                    SessionPayment payment = new SessionPayment(
+                            table.getRestaurant(),
+                            session,
+                            bill,
+                            bill.getGrandTotal(),
+                            bill.getGrandTotal(),
+                            BigDecimal.ZERO,
+                            BigDecimal.ZERO,
+                            "CASH",
+                            now,
+                            null
+                    );
+
+                    cashRegisterRepository.findByRestaurantIdAndStatus(restaurantId, CashRegisterStatus.OPEN)
+                            .ifPresent(payment::setCashRegisterSession);
+
+                    paymentRepository.save(payment);
+                    log.info("Legacy close: zero-value payment recorded | tableId={} | sessionId={} | grandTotal={}",
+                            tableId, session.getId(), bill.getGrandTotal());
+                } catch (Exception e) {
+                    log.error("Failed to record legacy payment for session {} | tableId={} | error={}",
+                            session.getId(), tableId, e.getMessage(), e);
+                }
             }
         });
 

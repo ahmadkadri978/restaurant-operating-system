@@ -58,6 +58,7 @@ spec:
                 secretKeyRef:
                   name: {{ .Release.Name }}-secrets
                   key: ADMIN_PASSWORD
+                  optional: true
             # Redis — disabled: no Redis instance in this cluster
             - name: REDIS_ENABLED
               value: "false"

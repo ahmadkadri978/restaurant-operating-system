@@ -42,13 +42,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
-                                "/swagger-ui.html","/", "/index.html"
-                        ).permitAll()
-                        .requestMatchers(
-                                "/", "/index.html",
-                                "/health.txt",
-                                "/**/*.css", "/**/*.js",
-                                "/**/*.png", "/**/*.jpg", "/**/*.jpeg", "/**/*.svg", "/**/*.webp", "/**/*.ico"
+                                "/swagger-ui.html"
                         ).permitAll()
 
                         .requestMatchers("/api/v1/public/**").permitAll()
@@ -82,12 +76,7 @@ public class SecurityConfig {
     @Bean
     public WebSecurityCustomizer webSecurityCustomizer() {
         return (web) -> web.ignoring().requestMatchers(
-
-                "/", "/index.html",
-                "/health.txt",
-                "/**/*.css", "/**/*.js",
-                "/**/*.png", "/**/*.jpg", "/**/*.jpeg", "/**/*.svg", "/**/*.webp", "/**/*.ico",
-                "/favicon.ico"
+                "/actuator/health/**"
         );
     }
     @Bean
@@ -103,7 +92,9 @@ public class SecurityConfig {
                 "https://www.syrianorder.com",
                 "https://app.syrianorder.com",
                 "https://test.app.syrianorder.com",
-                "https://adb1-134-169-108-248.ngrok-free.app"
+                "https://test.syrianorder.com",
+                "https://test.qr.syrianorder.com",
+                "https://qr.syrianorder.com"
         ));
 
         config.setAllowedMethods(List.of(

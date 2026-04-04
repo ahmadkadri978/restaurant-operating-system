@@ -31,6 +31,9 @@ spec:
           env:
             - name: SPRING_PROFILES_ACTIVE
               value: "prod"
+            # Override ddl-auto: some entities lack Flyway migrations
+            - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+              value: "update"
             # Database credentials (Helm-generated, never committed to Git)
             - name: DB_URL
               valueFrom:

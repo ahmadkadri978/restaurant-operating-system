@@ -1,0 +1,51 @@
+# ============================================================
+# Test profile — H2 in-memory, no Redis, no Firebase, no Flyway
+# Used by @SpringBootTest @ActiveProfiles("test")
+# ============================================================
+
+app:
+  instance-id: test-instance
+  redis:
+    enabled: false
+  jwt:
+    secret: test-secret-key-that-is-at-least-32-bytes-long-for-hmac
+    issuer: restaurant-qr
+    expiration-minutes: 60
+  upload:
+    dir: ${java.io.tmpdir}/rq-test-uploads
+    max-file-size: 5MB
+    allowed-extensions: jpg,jpeg,png,gif,webp
+  admin:
+    password: admin123
+  demo:
+    seed: false
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=MYSQL
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+  flyway:
+    enabled: false
+  jackson:
+    time-zone: Asia/Damascus
+  # Exclude Redis auto-config entirely for tests
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+  h2:
+    console:
+      enabled: false
+
+logging:
+  level:
+    root: WARN
+    com.restaurantqr: INFO
+

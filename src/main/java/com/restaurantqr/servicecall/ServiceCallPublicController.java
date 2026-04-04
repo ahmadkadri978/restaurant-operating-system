@@ -54,11 +54,44 @@ public class ServiceCallPublicController {
     @PostMapping("/tables/{qrToken}/service-calls")
     public ResponseEntity<ServiceCallResponse> createCall(
             @PathVariable String qrToken,
+            @RequestParam String code,
             @Valid @RequestBody CreateServiceCallRequest request
     ) {
-        log.info("POST /public/tables/{}/service-calls", qrToken);
-        ServiceCallResponse resp = serviceCallService.createCall(qrToken, request);
+        log.info("POST /public/tables/{}/service-calls | callType={} | code=***", qrToken, request.callType());
+        ServiceCallResponse resp = serviceCallService.createCall(qrToken, code, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(resp);
+    }
+
+    @Operation(
+            summary = "Check active service-call cooldown for a table",
+            description = """
+                    Returns cooldown status for the table resolved by `qrToken`.
+                    
+                    If a service call was made within the last 3 minutes, returns `active: true`
+                    with the remaining cooldown seconds. Otherwise returns `active: false`.
+                    
+                    Used by the frontend on page load to synchronise cooldown state across devices.
+                    """
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Cooldown status",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = CooldownStatusResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid session code",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ApiErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Invalid or inactive QR token",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ApiErrorResponse.class)))
+    })
+    @GetMapping("/tables/{qrToken}/service-calls/active")
+    public ResponseEntity<CooldownStatusResponse> getCooldownStatus(
+            @PathVariable String qrToken,
+            @RequestParam String code
+    ) {
+        log.info("GET /public/tables/{}/service-calls/active | code=***", qrToken);
+        CooldownStatusResponse status = serviceCallService.getCooldownStatus(qrToken, code);
+        return ResponseEntity.ok(status);
     }
 }
 

@@ -63,6 +63,15 @@ public class KitchenOrderController {
         return staffOrderService.markDone(principal.restaurantId(), orderId);
     }
 
+    @GetMapping("/orders/{orderId}")
+    public OrderDetailsDto getOrderDetails(
+            Authentication authentication,
+            @PathVariable Long orderId
+    ) {
+        AuthPrincipal principal = (AuthPrincipal) authentication.getPrincipal();
+        return staffOrderService.getOrderDetails(principal.restaurantId(), orderId);
+    }
+
 
     @Operation(
             summary = "Get SENT_TO_KITCHEN orders (in progress) - paging + polling",

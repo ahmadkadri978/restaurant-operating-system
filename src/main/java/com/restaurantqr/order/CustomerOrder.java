@@ -3,6 +3,7 @@ package com.restaurantqr.order;
 import com.restaurantqr.order.staff.OrderStatus;
 import com.restaurantqr.restaurant.Restaurant;
 import com.restaurantqr.table.RestaurantTable;
+import com.restaurantqr.table.TableSession;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -44,6 +45,17 @@ public class CustomerOrder {
     private Instant doneAt;
     @Column(name = "cancelled_at")
     private Instant cancelledAt;
+
+    /**
+     * Restaurant-specific display order number (1, 2, 3... per restaurant).
+     * Used for user-facing display. The internal 'id' remains the primary key.
+     */
+    @Column(name = "restaurant_order_number")
+    private Integer restaurantOrderNumber;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "table_session_id")
+    private TableSession tableSession;
 
     // Business rule (not DB): one order per minute per table
 
@@ -141,5 +153,21 @@ public class CustomerOrder {
 
     public void setCancelledAt(Instant cancelledAt) {
         this.cancelledAt = cancelledAt;
+    }
+
+    public Integer getRestaurantOrderNumber() {
+        return restaurantOrderNumber;
+    }
+
+    public void setRestaurantOrderNumber(Integer restaurantOrderNumber) {
+        this.restaurantOrderNumber = restaurantOrderNumber;
+    }
+
+    public TableSession getTableSession() {
+        return tableSession;
+    }
+
+    public void setTableSession(TableSession tableSession) {
+        this.tableSession = tableSession;
     }
 }

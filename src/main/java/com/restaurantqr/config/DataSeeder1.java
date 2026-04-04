@@ -4,6 +4,8 @@ import com.restaurantqr.order.CustomerOrder;
 import com.restaurantqr.order.CustomerOrderRepository;
 import com.restaurantqr.order.OrderItem;
 import com.restaurantqr.order.OrderItemRepository;
+import com.restaurantqr.order.RestaurantOrderCounter;
+import com.restaurantqr.order.RestaurantOrderCounterRepository;
 import com.restaurantqr.order.staff.OrderStatus;
 import com.restaurantqr.user.Role;
 import com.restaurantqr.menu.MenuCategory;
@@ -19,7 +21,7 @@ import com.restaurantqr.user.UserRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.math.BigDecimal;
@@ -38,7 +40,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
-@Configuration @Profile("dev")
+@Configuration
+@ConditionalOnProperty(name = "app.demo.seed", havingValue = "true")
 public class DataSeeder1 {
     @Bean
     CommandLineRunner seedData(
@@ -50,12 +53,41 @@ public class DataSeeder1 {
             CustomerOrderRepository orderRepository,
             OrderItemRepository orderItemRepository,
             ServiceCallRepository serviceCallRepository,
+            RestaurantOrderCounterRepository orderCounterRepository,
             PasswordEncoder passwordEncoder
     ) {
         return args -> {
 
-            // ✅ Seed once
-            if (restaurantRepository.count() > 0) return;
+            // ✅ Ensure ADMIN user exists (system-wide, no restaurant)
+            if (userRepository.findByUsername("admin").isEmpty()) {
+                User admin = new User();
+                admin.setUsername("admin");
+                admin.setPasswordHash(passwordEncoder.encode("admin123"));
+                admin.setRole(Role.ADMIN);
+                admin.setRestaurant(null); // ADMIN is system-wide
+                admin.setActive(true);
+                userRepository.save(admin);
+                System.out.println("➡ ADMIN login created: admin / admin123");
+            }
+
+            // ✅ Ensure order counters exist for all existing restaurants
+            restaurantRepository.findAll().forEach(existingRestaurant -> {
+                if (!orderCounterRepository.existsById(existingRestaurant.getId())) {
+                    orderCounterRepository.save(new RestaurantOrderCounter(existingRestaurant.getId(), 0));
+                    System.out.println("➡ Order counter created for restaurant: " + existingRestaurant.getId());
+                }
+            });
+
+            // ✅ Existing DB: ensure demo owner exists for the first restaurant
+            if (restaurantRepository.count() > 0) {
+                restaurantRepository.findAll().stream().findFirst().ifPresent(existingRestaurant -> {
+                    if (userRepository.findByUsername("owner1").isEmpty()) {
+                        userRepository.save(makeUser("owner1", "123456", Role.OWNER, existingRestaurant, passwordEncoder));
+                        System.out.println("➡ OWNER login created for existing data: owner1 / 123456");
+                    }
+                });
+                return;
+            }
 
             // =========================
             // 1) Restaurant
@@ -66,9 +98,14 @@ public class DataSeeder1 {
             restaurant.setActive(true);
             restaurantRepository.save(restaurant);
 
+            // Initialize order counter for new restaurant
+            orderCounterRepository.save(new RestaurantOrderCounter(restaurant.getId(), 0));
+            System.out.println("➡ Order counter initialized for Demo Restaurant");
+
             // =========================
-            // 2) Users (STAFF only + optional manager)
+            // 2) Users
             // =========================
+            userRepository.save(makeUser("owner1", "123456", Role.OWNER, restaurant, passwordEncoder));
             userRepository.save(makeUser("staff1", "123456", Role.STAFF, restaurant, passwordEncoder));
             userRepository.save(makeUser("staff2", "123456", Role.STAFF, restaurant, passwordEncoder));
 
@@ -130,6 +167,10 @@ public class DataSeeder1 {
                 table.setTableNumber(t);
                 table.setQrToken("DEMO-TABLE-" + t);
                 table.setActive(true);
+                // Auto-open session with predictable code for testing
+                String sessionCode = String.format("%04d", 1000 + t); // 1001, 1002, etc.
+                table.setSessionCode(sessionCode);
+                table.setSessionOpenedAt(Instant.now());
                 tableRepository.save(table);
 
                 // ---- Service Call (one per table) ----
@@ -197,8 +238,12 @@ public class DataSeeder1 {
             }
 
             System.out.println("✅ Seeded: 1 restaurant + users + 20 tables + 20 orders + 20 service calls");
+            System.out.println("➡ ADMIN login: admin / admin123");
+            System.out.println("➡ OWNER login: owner1 / 123456");
             System.out.println("➡ STAFF login: staff1 / 123456");
-            System.out.println("➡ Try menu: GET /api/v1/public/tables/DEMO-TABLE-1/menu");
+            System.out.println("➡ Demo Table 1: token=DEMO-TABLE-1, code=1001");
+            System.out.println("➡ Demo Table 2: token=DEMO-TABLE-2, code=1002");
+            System.out.println("➡ Try menu: http://localhost/app/screen1.html?token=DEMO-TABLE-1&code=1001");
         };
     }
 

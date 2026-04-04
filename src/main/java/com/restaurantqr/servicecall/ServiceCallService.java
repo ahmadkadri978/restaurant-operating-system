@@ -4,13 +4,17 @@ package com.restaurantqr.servicecall;
 import com.restaurantqr.exception.BusinessRuleException;
 import com.restaurantqr.exception.RateLimitException;
 import com.restaurantqr.exception.ResourceNotFoundException;
+import com.restaurantqr.sse.ServiceCallPayload;
+import com.restaurantqr.sse.SseEventType;
+import com.restaurantqr.sse.SseOutboundEvent;
+import com.restaurantqr.table.PublicSessionService;
 import com.restaurantqr.table.RestaurantTable;
 import com.restaurantqr.table.RestaurantTableRepository;
 import org.slf4j.*;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.management.Notification;
 import java.time.Instant;
 import java.util.List;
 
@@ -21,18 +25,32 @@ public class ServiceCallService {
 
     private final RestaurantTableRepository tableRepository;
     private final ServiceCallRepository serviceCallRepository;
-    private final  FcmPushService fcmPushService;
+    private final FcmPushService fcmPushService;
+    private final PublicSessionService publicSessionService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public ServiceCallService(RestaurantTableRepository tableRepository,
-                              ServiceCallRepository serviceCallRepository, FcmPushService fcmPushService) {
+                              ServiceCallRepository serviceCallRepository,
+                              FcmPushService fcmPushService,
+                              PublicSessionService publicSessionService,
+                              ApplicationEventPublisher eventPublisher) {
         this.tableRepository = tableRepository;
         this.serviceCallRepository = serviceCallRepository;
         this.fcmPushService = fcmPushService;
+        this.publicSessionService = publicSessionService;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
-    public ServiceCallResponse createCall(String qrToken, CreateServiceCallRequest request) {
+    public ServiceCallResponse createCall(String qrToken, String code, CreateServiceCallRequest request) {
+
+        if (qrToken == null || qrToken.isBlank()) throw new BusinessRuleException("qrToken is required");
+        if (code == null || code.isBlank()) throw new BusinessRuleException("Session code is required");
+
         log.info("Create service call request. qrToken={}, callType={}", qrToken, request.callType());
+
+        // ✅ نفس orderService
+        publicSessionService.verifySessionOrThrow(qrToken, code);
 
         // ✅ lock table row to avoid spam race condition
         RestaurantTable table = tableRepository.findActiveByQrTokenForUpdate(qrToken)
@@ -73,9 +91,24 @@ public class ServiceCallService {
             case NARA   -> "نارا";
             default     -> "نداء";
         };
-        fcmPushService.notifyServiceCall(restaurant.getId(), table.getTableNumber(), callTypeAr);
+        fcmPushService.notifyServiceCall(
+                restaurant.getId(),
+                saved.getId(),
+                table.getTableNumber(),
+                callTypeAr
+        );
 
-
+        // Publish SSE event after transaction commits (in addition to FCM push)
+        eventPublisher.publishEvent(SseOutboundEvent.of(
+                SseEventType.SERVICE_CALL,
+                restaurant.getId(),
+                new ServiceCallPayload(
+                        saved.getId(),
+                        table.getTableNumber(),
+                        saved.getCallType(),
+                        saved.getCreatedAt()
+                )
+        ));
 
         return new ServiceCallResponse(
                 saved.getId(),
@@ -119,6 +152,30 @@ public class ServiceCallService {
                         c.getCreatedAt()
                 ))
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public CooldownStatusResponse getCooldownStatus(String qrToken, String code) {
+
+        if (qrToken == null || qrToken.isBlank()) throw new BusinessRuleException("qrToken is required");
+        if (code == null || code.isBlank()) throw new BusinessRuleException("Session code is required");
+
+        publicSessionService.verifySessionOrThrow(qrToken, code);
+
+        RestaurantTable table = tableRepository.findActiveByQrTokenFetchRestaurant(qrToken)
+                .orElseThrow(() -> new ResourceNotFoundException("Invalid or inactive QR token"));
+
+        int cooldownSeconds = 180;
+        Instant threshold = Instant.now().minusSeconds(cooldownSeconds);
+
+        return serviceCallRepository
+                .findTopByTableIdAndCreatedAtAfterOrderByCreatedAtDesc(table.getId(), threshold)
+                .map(call -> {
+                    long elapsed = Instant.now().getEpochSecond() - call.getCreatedAt().getEpochSecond();
+                    int remaining = Math.max(0, cooldownSeconds - (int) elapsed);
+                    return new CooldownStatusResponse(true, remaining, call.getCallType(), call.getCreatedAt());
+                })
+                .orElse(new CooldownStatusResponse(false, 0, null, null));
     }
 
 }

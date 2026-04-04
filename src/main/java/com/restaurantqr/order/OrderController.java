@@ -66,4 +66,38 @@ public class OrderController {
         log.info("PUBLIC_SUBMIT_ORDER_SUCCESS | qrToken={} | orderId={}", qrToken, resp.orderId());
         return ResponseEntity.status(HttpStatus.CREATED).body(resp);
     }
+
+    @Operation(
+            summary = "Get all orders for the current active session",
+            description = """
+                    Returns all orders belonging to the current active table session.
+                    Orders are scoped by the session start time (sessionOpenedAt) — 
+                    previous sessions' orders are excluded.
+                    
+                    **Usage:** Customer order-tracking screen (screen3) polls this endpoint.
+                    """
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Session orders retrieved",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = SessionOrdersResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid or expired session code",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ApiErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Invalid QR token",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ApiErrorResponse.class)))
+    })
+    @GetMapping("/tables/{qrToken}/orders")
+    public ResponseEntity<SessionOrdersResponse> getSessionOrders(
+            @PathVariable String qrToken,
+            @RequestParam String code
+    ) {
+        log.info("PUBLIC_GET_SESSION_ORDERS | qrToken={} | codeProvided={}", qrToken, code != null);
+
+        SessionOrdersResponse resp = orderService.getSessionOrders(qrToken, code);
+
+        log.info("PUBLIC_GET_SESSION_ORDERS_SUCCESS | qrToken={} | count={}", qrToken, resp.orders().size());
+        return ResponseEntity.ok(resp);
+    }
 }

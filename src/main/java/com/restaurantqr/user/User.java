@@ -14,9 +14,9 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @ManyToOne(optional = true, fetch = FetchType.LAZY)
     @JoinColumn(name = "restaurant_id")
-    private Restaurant restaurant;
+    private Restaurant restaurant;  // null for ADMIN users (system-wide)
 
     @Column(nullable = false, unique = true, length = 100)
     private String username;

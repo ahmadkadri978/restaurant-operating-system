@@ -3,12 +3,19 @@ package com.restaurantqr.menu;
 
 import com.restaurantqr.exception.BusinessRuleException;
 import com.restaurantqr.exception.ResourceNotFoundException;
+import com.restaurantqr.restaurant.Restaurant;
 import com.restaurantqr.table.RestaurantTable;
 import com.restaurantqr.table.RestaurantTableRepository;
-import org.slf4j.*;
+
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import org.springframework.transaction.annotation.Transactional;
+
 
 @Service
 public class MenuService {
@@ -27,33 +34,43 @@ public class MenuService {
         this.itemRepository = itemRepository;
     }
 
+    @Transactional(readOnly = true)
     public MenuResponse getMenuByQrToken(String qrToken) {
 
-        log.info("Get menu request received. qrToken={}", qrToken);
+        if (qrToken == null || qrToken.isBlank()) {
+            throw new BusinessRuleException("qrToken is required");
+        }
 
-        RestaurantTable table = tableRepository.findByQrTokenAndIsActiveTrue(qrToken)
+        log.info("Get menu | qrToken={}", qrToken);
+
+        // ✅ Fetch restaurant in same query to avoid Lazy issues / extra queries
+        RestaurantTable table = tableRepository.findActiveByQrTokenFetchRestaurant(qrToken)
                 .orElseThrow(() -> {
-                    log.warn("Invalid or inactive QR token. qrToken={}", qrToken);
+                    log.warn("Invalid/inactive QR token | qrToken={}", qrToken);
                     return new ResourceNotFoundException("Invalid or inactive QR token");
                 });
 
-        var restaurant = table.getRestaurant();
-
-        if (!restaurant.isActive()) {
-            log.warn("Restaurant inactive. restaurantId={}, qrToken={}", restaurant.getId(), qrToken);
-            throw new BusinessRuleException("Restaurant is inactive");
+        Restaurant restaurant = table.getRestaurant();
+        if (restaurant == null || !restaurant.isActive()) {
+            log.warn("Restaurant inactive/not found | qrToken={} | tableId={}", qrToken, table.getId());
+            throw new ResourceNotFoundException("Invalid or inactive QR token");
         }
 
         Long restaurantId = restaurant.getId();
 
+        // ✅ Categories: stable ordering (null displayOrder safe)
         List<MenuCategoryDto> categories = categoryRepository
-                .findByRestaurantIdAndIsActiveTrueOrderByDisplayOrderAsc(restaurantId)
+                .findActiveByRestaurantOrderByDisplayOrder(restaurantId)
                 .stream()
                 .map(c -> new MenuCategoryDto(c.getId(), c.getName(), c.getDisplayOrder()))
                 .toList();
 
+        // ✅ Items: fetch ALL active items (available=false items are included but shown as unavailable)
+        // Business rules:
+        // - active=false → item is completely hidden (not returned from backend)
+        // - available=false → item is returned but marked as unavailable (frontend shows it disabled)
         List<MenuItemDto> items = itemRepository
-                .findByRestaurantIdAndIsActiveTrueAndIsAvailableTrueOrderByDisplayOrderAsc(restaurantId)
+                .findActiveMenuForRestaurantFetchCategory(restaurantId)
                 .stream()
                 .map(i -> new MenuItemDto(
                         i.getId(),
@@ -62,12 +79,14 @@ public class MenuService {
                         i.getDescription(),
                         i.getPrice(),
                         i.isAvailable(),
+                        i.isActive(),
                         i.getDisplayOrder(),
-                        i.getImageUrl()
+                        i.getImageUrl(),
+                        i.getUpdatedAt() != null ? i.getUpdatedAt().toEpochMilli() : null
                 ))
                 .toList();
 
-        log.info("Menu loaded successfully. restaurantId={}, tableNumber={}, categoriesCount={}, itemsCount={}",
+        log.info("Menu loaded | restaurantId={} | tableNumber={} | categoriesCount={} | itemsCount={}",
                 restaurantId, table.getTableNumber(), categories.size(), items.size());
 
         return new MenuResponse(

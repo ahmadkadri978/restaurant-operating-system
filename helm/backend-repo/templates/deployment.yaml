@@ -37,6 +37,9 @@ spec:
             # Override ddl-auto: some entities lack Flyway migrations
             - name: SPRING_JPA_HIBERNATE_DDL_AUTO
               value: "update"
+            # Auto-repair Flyway schema history from previous failed migrations
+            - name: SPRING_FLYWAY_REPAIR_ON_MIGRATE
+              value: "true"
             # Database credentials (Helm-generated, never committed to Git)
             - name: DB_URL
               valueFrom:

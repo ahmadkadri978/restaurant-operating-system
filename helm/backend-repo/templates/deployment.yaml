@@ -31,6 +31,9 @@ spec:
           env:
             - name: SPRING_PROFILES_ACTIVE
               value: "prod"
+            # Override JVM memory to fit container limits
+            - name: JAVA_OPTS
+              value: "-Xms256m -Xmx512m -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
             # Override ddl-auto: some entities lack Flyway migrations
             - name: SPRING_JPA_HIBERNATE_DDL_AUTO
               value: "update"

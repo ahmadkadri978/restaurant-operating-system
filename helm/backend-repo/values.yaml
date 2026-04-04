@@ -1,16 +1,20 @@
 image:
   repository: fadidasus/order-sys
-  tag: "backend-repo-5e033a8"
+  tag: "backend-repo-dbe846b"
   pullPolicy: IfNotPresent
+
 replicaCount: 1
+
 resources:
   requests:
     cpu: 100m
-    memory: 256Mi
+    memory: 384Mi
   limits:
-    memory: 512Mi
+    memory: 768Mi
+
 service:
   port: 8080
+
 ingress:
   host: api.syrianorder.com
   tlsSecret: backend-repo-tls

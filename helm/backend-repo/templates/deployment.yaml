@@ -18,6 +18,10 @@ spec:
         runAsNonRoot: true
         runAsUser: 1001
         fsGroup: 1001
+      volumes:
+        - name: uploads
+          emptyDir:
+            sizeLimit: 2Gi
       containers:
         - name: backend-repo
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -27,6 +31,7 @@ spec:
           env:
             - name: SPRING_PROFILES_ACTIVE
               value: "prod"
+            # Database credentials (Helm-generated, never committed to Git)
             - name: DB_URL
               valueFrom:
                 secretKeyRef:
@@ -42,11 +47,26 @@ spec:
                 secretKeyRef:
                   name: {{ .Release.Name }}-db-credentials
                   key: MYSQL_PASSWORD
+            # Application secrets (SealedSecret, sealed per namespace)
             - name: APP_JWT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: {{ .Release.Name }}-secrets
                   key: APP_JWT_SECRET
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: ADMIN_PASSWORD
+            # Redis — disabled: no Redis instance in this cluster
+            - name: REDIS_ENABLED
+              value: "false"
+            # Upload directory — use emptyDir volume (ephemeral, sufficient for serving uploads)
+            - name: APP_UPLOAD_DIR
+              value: "/var/lib/orders-qr/uploads"
+          volumeMounts:
+            - name: uploads
+              mountPath: /var/lib/orders-qr/uploads
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: false
@@ -61,14 +81,14 @@ spec:
               memory: {{ .Values.resources.limits.memory }}
           readinessProbe:
             httpGet:
-              path: /actuator/health
+              path: /actuator/health/readiness
               port: 8080
             initialDelaySeconds: 30
             periodSeconds: 10
             failureThreshold: 3
           livenessProbe:
             httpGet:
-              path: /actuator/health
+              path: /actuator/health/liveness
               port: 8080
             initialDelaySeconds: 60
             periodSeconds: 20

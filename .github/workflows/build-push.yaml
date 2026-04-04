@@ -48,7 +48,7 @@ jobs:
             done
           fi
 
-      # Seal APP_JWT_SECRET into a SealedSecret manifest.
+      # Seal APP_JWT_SECRET and ADMIN_PASSWORD into a SealedSecret manifest.
       # Branch determines namespace: main → prod, dev → dev.
       # MASTER_CRT is the public cert matching the private key pre-seeded
       # into the cluster via Terraform (SEALED_SECRET_KEY).
@@ -57,6 +57,7 @@ jobs:
         env:
           MASTER_CRT: ${{ secrets.MASTER_CRT }}
           APP_JWT_SECRET: ${{ secrets.APP_JWT_SECRET }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
         run: |
           BRANCH="${GITHUB_REF_NAME}"
           if [ "$BRANCH" = "main" ]; then NAMESPACE="prod"; else NAMESPACE="dev"; fi
@@ -72,6 +73,7 @@ jobs:
           kubectl create secret generic backend-repo-secrets \
             --namespace="${NAMESPACE}" \
             --from-literal=APP_JWT_SECRET="${APP_JWT_SECRET}" \
+            --from-literal=ADMIN_PASSWORD="${ADMIN_PASSWORD}" \
             --dry-run=client -o yaml \
           | kubeseal --cert /tmp/master.crt --format yaml \
           > helm/backend-repo/templates/sealed-secret.yaml

@@ -9,12 +9,19 @@ RUN mvn clean package -DskipTests
 
 FROM eclipse-temurin:17-jre-alpine
 
-RUN apk add --no-cache tzdata curl
+RUN apk add --no-cache tzdata curl && \
+    addgroup --system --gid 1001 appgroup && \
+    adduser --system --uid 1001 --ingroup appgroup appuser && \
+    mkdir -p /app && \
+    chown -R appuser:appgroup /app
+
 ENV TZ=Asia/Damascus
 
 WORKDIR /app
 
-COPY --from=builder /app/target/*.jar app.jar
+COPY --from=builder --chown=appuser:appgroup /app/target/*.jar app.jar
+
+USER 1001
 
 EXPOSE 8080
 

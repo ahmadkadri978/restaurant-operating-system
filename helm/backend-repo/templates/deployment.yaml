@@ -70,9 +70,13 @@ spec:
                   name: {{ .Release.Name }}-secrets
                   key: ADMIN_PASSWORD
                   optional: true
-            # Redis — disabled: no Redis instance in this cluster
+            # Redis for SSE pub/sub fan-out
             - name: REDIS_ENABLED
-              value: "false"
+              value: "true"
+            - name: REDIS_HOST
+              value: "{{ .Release.Name }}-redis"
+            - name: REDIS_PORT
+              value: "6379"
             # Upload directory — use emptyDir volume (ephemeral, sufficient for serving uploads)
             - name: APP_UPLOAD_DIR
               value: "/var/lib/orders-qr/uploads"

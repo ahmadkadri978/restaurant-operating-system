@@ -101,6 +101,8 @@ public class SecurityConfig {
                 "http://localhost:5173",
                 "https://syrianorder.com",
                 "https://www.syrianorder.com",
+                "https://app.syrianorder.com",
+                "https://test.app.syrianorder.com",
                 "https://adb1-134-169-108-248.ngrok-free.app"
         ));
 

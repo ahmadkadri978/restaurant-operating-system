@@ -1,4 +1,12 @@
 ---
+# MySQL 8.4 StatefulSet — dedicated instance for backend-repo.
+# Only backend-repo pods can reach this database (NetworkPolicy below).
+# Credentials come from {{ .Release.Name }}-db-credentials Secret (Helm-generated, cluster-only).
+#
+# User creation: MySQL creates MYSQL_USER@% automatically on first init (empty /var/lib/mysql).
+# If the password changes after first init, rotate it manually:
+#   kubectl exec -n <ns> backend-repo-mysql-0 -- mysql -uroot -p<ROOT_PW> \
+#     -e "ALTER USER '<USER>'@'%' IDENTIFIED BY '<NEW_PW>'; FLUSH PRIVILEGES;"
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -23,10 +31,8 @@ spec:
         - name: mysql
           image: mysql:8.4
           args:
-            # Cap InnoDB buffer pool to 256 MB so MySQL stays well within the 768 Mi container limit.
-            # Default: MySQL 8.4 auto-sizes buffer pool to ~80% of RAM → OOMKill on 512Mi limit.
-            # NOTE: innodb-log-file-size is intentionally omitted — changing it on an existing
-            # datadir causes MySQL to refuse to start (redo log size mismatch).
+            # Cap InnoDB buffer pool: MySQL 8.4 auto-sizes to ~80% RAM, causing OOMKill on 512Mi.
+            # innodb-log-file-size omitted: changing it on existing datadir prevents startup.
             - --innodb-buffer-pool-size=256M
             - --max-connections=100
             - --performance-schema=OFF
@@ -58,39 +64,18 @@ spec:
               cpu: 100m
               memory: 384Mi
             limits:
-              # Raised from 512Mi — MySQL 8.4 with innodb_buffer_pool_size=256M
-              # uses ~500 MiB RSS under load and was OOMKilled with 512Mi limit.
               memory: 768Mi
           volumeMounts:
             - name: data
               mountPath: /var/lib/mysql
-          # post-start hook: idempotently ensure appuser@% exists with the current
-          # secret password. Runs every time the MySQL container starts — safe because
-          # CREATE USER IF NOT EXISTS + ALTER USER are both idempotent.
-          lifecycle:
-            postStart:
-              exec:
-                command:
-                  - bash
-                  - -c
-                  - |
-                    for i in $(seq 1 30); do
-                      mysqladmin ping -h 127.0.0.1 -uroot -p"${MYSQL_ROOT_PASSWORD}" --silent 2>/dev/null && break
-                      sleep 2
-                    done
-                    mysql -h 127.0.0.1 -uroot -p"${MYSQL_ROOT_PASSWORD}" \
-                      -e "CREATE USER IF NOT EXISTS '${MYSQL_USER}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}';
-                          ALTER USER '${MYSQL_USER}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}';
-                          GRANT ALL PRIVILEGES ON \`${MYSQL_DATABASE}\`.* TO '${MYSQL_USER}'@'%';
-                          FLUSH PRIVILEGES;" 2>/dev/null || true
           livenessProbe:
             exec:
               command:
                 - bash
                 - -c
-                - "mysqladmin ping -h 127.0.0.1 -uroot -p${MYSQL_ROOT_PASSWORD}"
-            initialDelaySeconds: 30
-            periodSeconds: 10
+                - 'mysqladmin ping -h 127.0.0.1 -uroot -p"${MYSQL_ROOT_PASSWORD}" --silent'
+            initialDelaySeconds: 60
+            periodSeconds: 15
             timeoutSeconds: 5
             failureThreshold: 3
           readinessProbe:
@@ -98,20 +83,22 @@ spec:
               command:
                 - bash
                 - -c
-                - "mysql -h 127.0.0.1 -uroot -p${MYSQL_ROOT_PASSWORD} -e 'SELECT 1'"
+                - 'mysqladmin ping -h 127.0.0.1 -uroot -p"${MYSQL_ROOT_PASSWORD}" --silent'
             initialDelaySeconds: 20
-            periodSeconds: 5
-            timeoutSeconds: 3
+            periodSeconds: 10
+            timeoutSeconds: 5
             failureThreshold: 3
   volumeClaimTemplates:
     - metadata:
         name: data
       spec:
         accessModes: ["ReadWriteOnce"]
+        # storageClassName NOT set: volumeClaimTemplates are immutable on existing StatefulSets.
         resources:
           requests:
             storage: 5Gi
 ---
+# Headless Service for backend-repo MySQL
 apiVersion: v1
 kind: Service
 metadata:
@@ -158,7 +145,6 @@ spec:
         - protocol: TCP
           port: 3306
 ---
-# Allow backup CronJob pods to connect to MySQL on port 3306
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -179,7 +165,7 @@ spec:
         - protocol: TCP
           port: 3306
 ---
-# PVC for MySQL backup dumps — keeps 7 days of compressed backups.
+# Backup PVC: uses cluster default StorageClass (no storageClassName) for fresh-install safety.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -188,13 +174,11 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: local-path-retain
   resources:
     requests:
       storage: 5Gi
 ---
-# CronJob: daily mysqldump backup of the backend-repo database.
-# Runs at 01:00 UTC every day. Keeps the last 7 compressed dumps.
+# CronJob: daily mysqldump at 01:00 UTC, keeps 7 days of compressed backups.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -232,17 +216,12 @@ spec:
                   mysqldump \
                     -h {{ .Release.Name }}-mysql.{{ .Release.Namespace }}.svc.cluster.local \
                     -uroot -p"${MYSQL_ROOT_PASSWORD}" \
-                    --single-transaction \
-                    --routines \
-                    --triggers \
-                    --add-drop-database \
+                    --single-transaction --routines --triggers --add-drop-database \
                     --databases "${MYSQL_DATABASE}" \
                   | gzip -9 > "${BACKUP_FILE}"
                   echo "Backup complete: $(du -sh ${BACKUP_FILE})"
-                  # Prune backups older than 7 days
                   find /backup -name "{{ .Release.Name }}-*.sql.gz" -mtime +7 -delete
-                  echo "Pruned old backups. Current backups:"
-                  ls -lh /backup/
+                  echo "Done. Backups:"; ls -lh /backup/
               env:
                 - name: MYSQL_ROOT_PASSWORD
                   valueFrom:

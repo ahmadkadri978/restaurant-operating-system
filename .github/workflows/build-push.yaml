@@ -87,18 +87,34 @@ jobs:
           TAGS: ${{ steps.meta.outputs.tags }}
         run: |
           IMAGE_TAG=$(echo "$TAGS" | head -1 | cut -d: -f2)
-          echo "Deploying image tag: ${IMAGE_TAG}"
+          BRANCH="${GITHUB_REF_NAME}"
+          echo "Deploying image tag: ${IMAGE_TAG} on branch: ${BRANCH}"
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+          # Branch-scoped versioning: main → 0.1.x (prod), dev → 0.0.x (dev)
+          # Independent minor versions per branch prevent merge conflicts entirely.
+          if [ "$BRANCH" = "main" ]; then
+            TARGET_MINOR=1
+          else
+            TARGET_MINOR=0
+          fi
+
           sed -i "s|  tag:.*|  tag: \"${IMAGE_TAG}\"|" helm/backend-repo/values.yaml
 
           CURRENT_VERSION=$(grep '^version:' helm/backend-repo/Chart.yaml | awk '{print $2}')
-          MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
-          MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
-          PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f3)
-          NEW_VERSION="${MAJOR}.${MINOR}.$(( PATCH + 1 ))"
+          CURRENT_MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
+          CURRENT_PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f3)
+
+          # If minor matches our target series, bump patch. Otherwise reset patch to 0.
+          if [ "$CURRENT_MINOR" = "$TARGET_MINOR" ]; then
+            NEW_PATCH=$(( CURRENT_PATCH + 1 ))
+          else
+            NEW_PATCH=0
+          fi
+          NEW_VERSION="0.${TARGET_MINOR}.${NEW_PATCH}"
+
           sed -i "s|^version:.*|version: ${NEW_VERSION}|" helm/backend-repo/Chart.yaml
           sed -i "s|^appVersion:.*|appVersion: \"${IMAGE_TAG}\"|" helm/backend-repo/Chart.yaml
 
@@ -106,5 +122,5 @@ jobs:
           git diff --cached --quiet && { echo "Nothing to commit"; exit 0; }
           git commit -m "chore: release backend-repo chart ${NEW_VERSION} with image ${IMAGE_TAG} [skip ci]"
 
-          git pull --rebase -Xtheirs origin "${GITHUB_REF_NAME}"
+          git pull --rebase -Xtheirs origin "${BRANCH}"
           git push

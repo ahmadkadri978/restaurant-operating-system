@@ -25,8 +25,9 @@ spec:
           args:
             # Cap InnoDB buffer pool to 256 MB so MySQL stays well within the 768 Mi container limit.
             # Default: MySQL 8.4 auto-sizes buffer pool to ~80% of RAM → OOMKill on 512Mi limit.
+            # NOTE: innodb-log-file-size is intentionally omitted — changing it on an existing
+            # datadir causes MySQL to refuse to start (redo log size mismatch).
             - --innodb-buffer-pool-size=256M
-            - --innodb-log-file-size=64M
             - --max-connections=100
             - --performance-schema=OFF
           ports:
@@ -107,6 +108,7 @@ spec:
         name: data
       spec:
         accessModes: ["ReadWriteOnce"]
+        storageClassName: local-path-retain
         resources:
           requests:
             storage: 5Gi
@@ -187,6 +189,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
+  storageClassName: local-path-retain
   resources:
     requests:
       storage: 5Gi

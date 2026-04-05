@@ -8,6 +8,15 @@ spec:
   selector:
     matchLabels:
       app: {{ .Release.Name }}
+  {{- with .Values.deploymentStrategy }}
+  strategy:
+    type: {{ .type }}
+    {{- if .rollingUpdate }}
+    rollingUpdate:
+      maxSurge: {{ .rollingUpdate.maxSurge }}
+      maxUnavailable: {{ .rollingUpdate.maxUnavailable }}
+    {{- end }}
+  {{- end }}
   template:
     metadata:
       labels:
@@ -95,17 +104,27 @@ spec:
               memory: {{ .Values.resources.requests.memory }}
             limits:
               memory: {{ .Values.resources.limits.memory }}
+          {{- with .Values.startupProbe }}
+          startupProbe:
+            httpGet:
+              path: {{ .httpGet.path }}
+              port: {{ .httpGet.port }}
+            failureThreshold: {{ .failureThreshold }}
+            periodSeconds: {{ .periodSeconds }}
+          {{- end }}
           readinessProbe:
             httpGet:
-              path: /actuator/health/readiness
-              port: 8080
-            initialDelaySeconds: 30
-            periodSeconds: 10
-            failureThreshold: 3
+              path: {{ .Values.readinessProbe.httpGet.path | default "/actuator/health/readiness" }}
+              port: {{ .Values.readinessProbe.httpGet.port | default 8080 }}
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds | default 30 }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds | default 10 }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold | default 3 }}
+            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds | default 3 }}
           livenessProbe:
             httpGet:
-              path: /actuator/health/liveness
-              port: 8080
-            initialDelaySeconds: 60
-            periodSeconds: 20
-            failureThreshold: 3
+              path: {{ .Values.livenessProbe.httpGet.path | default "/actuator/health/liveness" }}
+              port: {{ .Values.livenessProbe.httpGet.port | default 8080 }}
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds | default 60 }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds | default 20 }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold | default 3 }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds | default 5 }}

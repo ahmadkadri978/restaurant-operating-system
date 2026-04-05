@@ -22,6 +22,13 @@ spec:
       containers:
         - name: mysql
           image: mysql:8.4
+          args:
+            # Cap InnoDB buffer pool to 256 MB so MySQL stays well within the 768 Mi container limit.
+            # Default: MySQL 8.4 auto-sizes buffer pool to ~80% of RAM → OOMKill on 512Mi limit.
+            - --innodb-buffer-pool-size=256M
+            - --innodb-log-file-size=64M
+            - --max-connections=100
+            - --performance-schema=OFF
           ports:
             - containerPort: 3306
           env:
@@ -48,12 +55,33 @@ spec:
           resources:
             requests:
               cpu: 100m
-              memory: 256Mi
+              memory: 384Mi
             limits:
-              memory: 512Mi
+              # Raised from 512Mi — MySQL 8.4 with innodb_buffer_pool_size=256M
+              # uses ~500 MiB RSS under load and was OOMKilled with 512Mi limit.
+              memory: 768Mi
           volumeMounts:
             - name: data
               mountPath: /var/lib/mysql
+          # post-start hook: idempotently ensure appuser@% exists with the current
+          # secret password. Runs every time the MySQL container starts — safe because
+          # CREATE USER IF NOT EXISTS + ALTER USER are both idempotent.
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - bash
+                  - -c
+                  - |
+                    for i in $(seq 1 30); do
+                      mysqladmin ping -h 127.0.0.1 -uroot -p"${MYSQL_ROOT_PASSWORD}" --silent 2>/dev/null && break
+                      sleep 2
+                    done
+                    mysql -h 127.0.0.1 -uroot -p"${MYSQL_ROOT_PASSWORD}" \
+                      -e "CREATE USER IF NOT EXISTS '${MYSQL_USER}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}';
+                          ALTER USER '${MYSQL_USER}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}';
+                          GRANT ALL PRIVILEGES ON \`${MYSQL_DATABASE}\`.* TO '${MYSQL_USER}'@'%';
+                          FLUSH PRIVILEGES;" 2>/dev/null || true
           livenessProbe:
             exec:
               command:
@@ -128,3 +156,112 @@ spec:
       ports:
         - protocol: TCP
           port: 3306
+---
+# Allow backup CronJob pods to connect to MySQL on port 3306
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-mysql-allow-from-backup
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ .Release.Name }}-mysql
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: {{ .Release.Name }}-mysql-backup
+      ports:
+        - protocol: TCP
+          port: 3306
+---
+# PVC for MySQL backup dumps — keeps 7 days of compressed backups.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-mysql-backup
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+# CronJob: daily mysqldump backup of the backend-repo database.
+# Runs at 01:00 UTC every day. Keeps the last 7 compressed dumps.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Release.Name }}-mysql-backup
+  namespace: {{ .Release.Namespace }}
+spec:
+  schedule: "0 1 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app: {{ .Release.Name }}-mysql-backup
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            fsGroup: 999
+          containers:
+            - name: mysqldump
+              image: mysql:8.4
+              command:
+                - bash
+                - -c
+                - |
+                  set -euo pipefail
+                  DATE=$(date +%Y-%m-%d)
+                  BACKUP_FILE="/backup/{{ .Release.Name }}-${DATE}.sql.gz"
+                  echo "Starting backup: ${BACKUP_FILE}"
+                  mysqldump \
+                    -h {{ .Release.Name }}-mysql.{{ .Release.Namespace }}.svc.cluster.local \
+                    -uroot -p"${MYSQL_ROOT_PASSWORD}" \
+                    --single-transaction \
+                    --routines \
+                    --triggers \
+                    --add-drop-database \
+                    --databases "${MYSQL_DATABASE}" \
+                  | gzip -9 > "${BACKUP_FILE}"
+                  echo "Backup complete: $(du -sh ${BACKUP_FILE})"
+                  # Prune backups older than 7 days
+                  find /backup -name "{{ .Release.Name }}-*.sql.gz" -mtime +7 -delete
+                  echo "Pruned old backups. Current backups:"
+                  ls -lh /backup/
+              env:
+                - name: MYSQL_ROOT_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Release.Name }}-db-credentials
+                      key: MYSQL_ROOT_PASSWORD
+                - name: MYSQL_DATABASE
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Release.Name }}-db-credentials
+                      key: MYSQL_DATABASE
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+          volumes:
+            - name: backup
+              persistentVolumeClaim:
+                claimName: {{ .Release.Name }}-mysql-backup

@@ -1,131 +1,136 @@
-﻿name: Build and Push Image
-
-on:
-  push:
-    branches: [main, dev]
-  pull_request:
-    branches: [main]
-
-permissions:
-  contents: write   # needed to commit updated image tag + sealed secret back to this repo
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    outputs:
-      image_tag: ${{ steps.meta.outputs.version }}
-
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - name: Log in to Docker Hub
-        if: github.event_name == 'push'
-        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
-        with:
-          username: fadidasus
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 # v5.7.0
-        with:
-          images: fadidasus/order-sys
-          tags: |
-            type=sha,prefix=backend-repo-,format=short
-
-      - name: Build and push
-        env:
-          TAGS: ${{ steps.meta.outputs.tags }}
-        run: |
-          PRIMARY=$(echo "$TAGS" | head -1)
-          docker build -t "$PRIMARY" .
-          echo "$TAGS" | tail -n +2 | while read tag; do
-            docker tag "$PRIMARY" "$tag"
-          done
-          if [ "${{ github.event_name }}" = "push" ]; then
-            echo "$TAGS" | while read tag; do
-              docker push "$tag"
-            done
-          fi
-
-      # Seal APP_JWT_SECRET and ADMIN_PASSWORD into a SealedSecret manifest.
-      # Branch determines namespace: main ÃƒÆ’Ã¢â‚¬ÂÃƒÆ’Ã‚Â¥ÃƒÆ’Ã¢â‚¬Â  prod, dev ÃƒÆ’Ã¢â‚¬ÂÃƒÆ’Ã‚Â¥ÃƒÆ’Ã¢â‚¬Â  dev.
-      # MASTER_CRT is the public cert matching the private key pre-seeded
-      # into the cluster via Terraform (SEALED_SECRET_KEY).
-      - name: Seal secrets
-        if: github.event_name == 'push'
-        env:
-          MASTER_CRT: ${{ secrets.MASTER_CRT }}
-          APP_JWT_SECRET: ${{ secrets.APP_JWT_SECRET }}
-          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
-        run: |
-          BRANCH="${GITHUB_REF_NAME}"
-          if [ "$BRANCH" = "main" ]; then NAMESPACE="prod"; else NAMESPACE="dev"; fi
-          echo "Sealing secrets for namespace: ${NAMESPACE}"
-
-          KUBESEAL_VERSION="0.27.3"
-          curl -sL "https://github.com/bitnami-labs/sealed-secrets/releases/download/v${KUBESEAL_VERSION}/kubeseal-${KUBESEAL_VERSION}-linux-amd64.tar.gz" \
-            | tar -xz kubeseal
-          chmod +x kubeseal && sudo mv kubeseal /usr/local/bin/
-
-          echo "${MASTER_CRT}" > /tmp/master.crt
-
-          kubectl create secret generic backend-repo-secrets \
-            --namespace="${NAMESPACE}" \
-            --from-literal=APP_JWT_SECRET="${APP_JWT_SECRET}" \
-            --from-literal=ADMIN_PASSWORD="${ADMIN_PASSWORD}" \
-            --dry-run=client -o yaml \
-          | kubeseal --cert /tmp/master.crt --format yaml \
-          > helm/backend-repo/templates/sealed-secret.yaml
-
-          rm -f /tmp/master.crt
-          echo "Sealed secret written."
-
-      - name: Update chart and commit
-        if: github.event_name == 'push'
-        env:
-          TAGS: ${{ steps.meta.outputs.tags }}
-          DB_PASS: ${{ secrets.DB_PASS }}
-        run: |
-          IMAGE_TAG=$(echo "$TAGS" | head -1 | cut -d: -f2)
-          BRANCH="${GITHUB_REF_NAME}"
-          echo "Deploying image tag: ${IMAGE_TAG} on branch: ${BRANCH}"
-
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Branch-scoped versioning: main ÃƒÆ’Ã¢â‚¬ÂÃƒÆ’Ã‚Â¥ÃƒÆ’Ã¢â‚¬Â  0.1.x (prod), dev ÃƒÆ’Ã¢â‚¬ÂÃƒÆ’Ã‚Â¥ÃƒÆ’Ã¢â‚¬Â  0.0.x (dev)
-          # Independent minor versions per branch prevent merge conflicts entirely.
-          if [ "$BRANCH" = "main" ]; then
-            TARGET_MINOR=1
-          else
-            TARGET_MINOR=0
-          fi
-
-          sed -i "s|  tag:.*|  tag: \"${IMAGE_TAG}\"|" helm/backend-repo/values.yaml
-
-          # Inject fixed DB password from GitHub secret into values.yaml
-          sed -i "s|  password:.*|  password: \"${DB_PASS}\"|" helm/backend-repo/values.yaml
-          sed -i "s|  rootPassword:.*|  rootPassword: \"${DB_PASS}\"|" helm/backend-repo/values.yaml
-
-          CURRENT_VERSION=$(grep '^version:' helm/backend-repo/Chart.yaml | awk '{print $2}')
-          CURRENT_MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
-          CURRENT_PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f3)
-
-          # If minor matches our target series, bump patch. Otherwise reset patch to 0.
-          if [ "$CURRENT_MINOR" = "$TARGET_MINOR" ]; then
-            NEW_PATCH=$(( CURRENT_PATCH + 1 ))
-          else
-            NEW_PATCH=0
-          fi
-          NEW_VERSION="0.${TARGET_MINOR}.${NEW_PATCH}"
-
-          sed -i "s|^version:.*|version: ${NEW_VERSION}|" helm/backend-repo/Chart.yaml
-          sed -i "s|^appVersion:.*|appVersion: \"${IMAGE_TAG}\"|" helm/backend-repo/Chart.yaml
-
-          git add helm/backend-repo/
-          git diff --cached --quiet && { echo "Nothing to commit"; exit 0; }
-          git commit -m "chore: release backend-repo chart ${NEW_VERSION} with image ${IMAGE_TAG} [skip ci]"
-
-          git pull --rebase -Xtheirs origin "${BRANCH}"
-          git push
+﻿name: Build and Push Image
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write   # needed to commit updated image tag + sealed secret back to this repo
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Log in to Docker Hub
+        if: github.event_name == 'push'
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        with:
+          username: fadidasus
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 # v5.7.0
+        with:
+          images: fadidasus/order-sys
+          tags: |
+            type=sha,prefix=backend-repo-,format=short
+
+      - name: Build and push
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          PRIMARY=$(echo "$TAGS" | head -1)
+          docker build -t "$PRIMARY" .
+          echo "$TAGS" | tail -n +2 | while read tag; do
+            docker tag "$PRIMARY" "$tag"
+          done
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "$TAGS" | while read tag; do
+              docker push "$tag"
+            done
+          fi
+
+      # Seal APP_JWT_SECRET and ADMIN_PASSWORD into a SealedSecret manifest.
+      # Branch determines namespace: main ÃƒÆ’Ã¢â‚¬ÂÃƒÆ’Ã‚Â¥ÃƒÆ’Ã¢â‚¬Â  prod, dev ÃƒÆ’Ã¢â‚¬ÂÃƒÆ’Ã‚Â¥ÃƒÆ’Ã¢â‚¬Â  dev.
+      # MASTER_CRT is the public cert matching the private key pre-seeded
+      # into the cluster via Terraform (SEALED_SECRET_KEY).
+      - name: Seal secrets
+        if: github.event_name == 'push'
+        env:
+          MASTER_CRT: ${{ secrets.MASTER_CRT }}
+          APP_JWT_SECRET: ${{ secrets.APP_JWT_SECRET }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          DB_PASS: ${{ secrets.DB_PASS }}
+        run: |
+          BRANCH="${GITHUB_REF_NAME}"
+          if [ "$BRANCH" = "main" ]; then NAMESPACE="prod"; else NAMESPACE="dev"; fi
+          echo "Sealing secrets for namespace: ${NAMESPACE}"
+
+          KUBESEAL_VERSION="0.27.3"
+          curl -sL "https://github.com/bitnami-labs/sealed-secrets/releases/download/v${KUBESEAL_VERSION}/kubeseal-${KUBESEAL_VERSION}-linux-amd64.tar.gz" \
+            | tar -xz kubeseal
+          chmod +x kubeseal && sudo mv kubeseal /usr/local/bin/
+
+          echo "${MASTER_CRT}" > /tmp/master.crt
+
+          kubectl create secret generic backend-repo-secrets \
+            --namespace="${NAMESPACE}" \
+            --from-literal=APP_JWT_SECRET="${APP_JWT_SECRET}" \
+            --from-literal=ADMIN_PASSWORD="${ADMIN_PASSWORD}" \
+            --dry-run=client -o yaml \
+          | kubeseal --cert /tmp/master.crt --format yaml \
+          > helm/backend-repo/templates/sealed-secret.yaml
+
+
+          # Seal DB credentials - SealedSecret controller creates the k8s Secret before Helm runs
+          kubectl create secret generic backend-repo-db-credentials \
+            --namespace="${NAMESPACE}" \
+            --from-literal=MYSQL_ROOT_PASSWORD="${DB_PASS}" \
+            --from-literal=MYSQL_PASSWORD="${DB_PASS}" \
+            --dry-run=client -o yaml \
+          | kubeseal --cert /tmp/master.crt --format yaml \
+          > helm/backend-repo/templates/db-sealed-secret.yaml
+          rm -f /tmp/master.crt
+          echo "Sealed secret written."
+
+      - name: Update chart and commit
+        if: github.event_name == 'push'
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          IMAGE_TAG=$(echo "$TAGS" | head -1 | cut -d: -f2)
+          BRANCH="${GITHUB_REF_NAME}"
+          echo "Deploying image tag: ${IMAGE_TAG} on branch: ${BRANCH}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Branch-scoped versioning: main ÃƒÆ’Ã¢â‚¬ÂÃƒÆ’Ã‚Â¥ÃƒÆ’Ã¢â‚¬Â  0.1.x (prod), dev ÃƒÆ’Ã¢â‚¬ÂÃƒÆ’Ã‚Â¥ÃƒÆ’Ã¢â‚¬Â  0.0.x (dev)
+          # Independent minor versions per branch prevent merge conflicts entirely.
+          if [ "$BRANCH" = "main" ]; then
+            TARGET_MINOR=1
+          else
+            TARGET_MINOR=0
+          fi
+
+          sed -i "s|  tag:.*|  tag: \"${IMAGE_TAG}\"|" helm/backend-repo/values.yaml
+
+          CURRENT_VERSION=$(grep '^version:' helm/backend-repo/Chart.yaml | awk '{print $2}')
+          CURRENT_MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
+          CURRENT_PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f3)
+
+          # If minor matches our target series, bump patch. Otherwise reset patch to 0.
+          if [ "$CURRENT_MINOR" = "$TARGET_MINOR" ]; then
+            NEW_PATCH=$(( CURRENT_PATCH + 1 ))
+          else
+            NEW_PATCH=0
+          fi
+          NEW_VERSION="0.${TARGET_MINOR}.${NEW_PATCH}"
+
+          sed -i "s|^version:.*|version: ${NEW_VERSION}|" helm/backend-repo/Chart.yaml
+          sed -i "s|^appVersion:.*|appVersion: \"${IMAGE_TAG}\"|" helm/backend-repo/Chart.yaml
+
+          git add helm/backend-repo/
+          git diff --cached --quiet && { echo "Nothing to commit"; exit 0; }
+          git commit -m "chore: release backend-repo chart ${NEW_VERSION} with image ${IMAGE_TAG} [skip ci]"
+
+          git pull --rebase -Xtheirs origin "${BRANCH}"
+          git push

@@ -62,8 +62,3 @@ redis:
       memory: 64Mi
     limits:
       memory: 128Mi
-# DB credentials - injected by CI from DB_PASS GitHub secret.
-# DO NOT commit real passwords here. CI overrides these via sed.
-db:
-  password: "hereyougo1966"
-  rootPassword: "hereyougo1966"

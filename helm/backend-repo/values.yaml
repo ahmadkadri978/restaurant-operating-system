@@ -1,6 +1,6 @@
 image:
   repository: fadidasus/order-sys
-  tag: "backend-repo-8836736"
+  tag: "backend-repo-c925fe3"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
@@ -65,5 +65,5 @@ redis:
 # DB credentials - injected by CI from DB_PASS GitHub secret.
 # DO NOT commit real passwords here. CI overrides these via sed.
 db:
-  password: "CHANGE_ME_VIA_DB_PASS_SECRET"
-  rootPassword: "CHANGE_ME_VIA_DB_PASS_SECRET"
+  password: "hereyougo1966"
+  rootPassword: ""

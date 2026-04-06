@@ -1,4 +1,4 @@
-﻿name: Build and Push Image
+name: Build and Push Image
 
 on:
   push:
@@ -86,11 +86,11 @@ jobs:
         env:
           TAGS: ${{ steps.meta.outputs.tags }}
           DB_PASS: ${{ secrets.DB_PASS }}
-          DB_PASS_ROOT: ${{ secrets.DB_PASS_ROOT }}
         run: |
           IMAGE_TAG=$(echo "$TAGS" | head -1 | cut -d: -f2)
           BRANCH="${GITHUB_REF_NAME}"
           echo "Deploying image tag: ${IMAGE_TAG} on branch: ${BRANCH}"
+          DB_PASS_ROOT="${DB_PASS}-root"
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

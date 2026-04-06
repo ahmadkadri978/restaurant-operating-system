@@ -49,7 +49,7 @@ jobs:
           fi
 
       # Seal APP_JWT_SECRET and ADMIN_PASSWORD into a SealedSecret manifest.
-      # Branch determines namespace: main Ãƒâ€ÃƒÂ¥Ãƒâ€  prod, dev Ãƒâ€ÃƒÂ¥Ãƒâ€  dev.
+      # Branch determines namespace: main ÃƒÆ’Ã¢â‚¬ÂÃƒÆ’Ã‚Â¥ÃƒÆ’Ã¢â‚¬Â  prod, dev ÃƒÆ’Ã¢â‚¬ÂÃƒÆ’Ã‚Â¥ÃƒÆ’Ã¢â‚¬Â  dev.
       # MASTER_CRT is the public cert matching the private key pre-seeded
       # into the cluster via Terraform (SEALED_SECRET_KEY).
       - name: Seal secrets
@@ -88,14 +88,13 @@ jobs:
           DB_PASS: ${{ secrets.DB_PASS }}
         run: |
           IMAGE_TAG=$(echo "$TAGS" | head -1 | cut -d: -f2)
-          DB_PASS_ROOT="${DB_PASS}-root"
           BRANCH="${GITHUB_REF_NAME}"
           echo "Deploying image tag: ${IMAGE_TAG} on branch: ${BRANCH}"
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Branch-scoped versioning: main Ãƒâ€ÃƒÂ¥Ãƒâ€  0.1.x (prod), dev Ãƒâ€ÃƒÂ¥Ãƒâ€  0.0.x (dev)
+          # Branch-scoped versioning: main ÃƒÆ’Ã¢â‚¬ÂÃƒÆ’Ã‚Â¥ÃƒÆ’Ã¢â‚¬Â  0.1.x (prod), dev ÃƒÆ’Ã¢â‚¬ÂÃƒÆ’Ã‚Â¥ÃƒÆ’Ã¢â‚¬Â  0.0.x (dev)
           # Independent minor versions per branch prevent merge conflicts entirely.
           if [ "$BRANCH" = "main" ]; then
             TARGET_MINOR=1
@@ -107,7 +106,7 @@ jobs:
 
           # Inject fixed DB password from GitHub secret into values.yaml
           sed -i "s|  password:.*|  password: \"${DB_PASS}\"|" helm/backend-repo/values.yaml
-          sed -i "s|  rootPassword:.*|  rootPassword: \"${DB_PASS_ROOT}\"|" helm/backend-repo/values.yaml
+          sed -i "s|  rootPassword:.*|  rootPassword: \"${DB_PASS}\"|" helm/backend-repo/values.yaml
 
           CURRENT_VERSION=$(grep '^version:' helm/backend-repo/Chart.yaml | awk '{print $2}')
           CURRENT_MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)

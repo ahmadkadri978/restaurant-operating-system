@@ -1,4 +1,4 @@
-image:
+﻿image:
   repository: fadidasus/order-sys
   tag: "backend-repo-c925fe3"
   pullPolicy: IfNotPresent
@@ -20,7 +20,7 @@ resources:
     cpu: 1000m
     memory: 896Mi
 
-# startupProbe replaces large initialDelaySeconds — allows up to 150s for JVM cold start
+# startupProbe replaces large initialDelaySeconds â€” allows up to 150s for JVM cold start
 startupProbe:
   httpGet:
     path: /actuator/health
@@ -66,4 +66,4 @@ redis:
 # DO NOT commit real passwords here. CI overrides these via sed.
 db:
   password: "hereyougo1966"
-  rootPassword: ""
+  rootPassword: "hereyougo1966"

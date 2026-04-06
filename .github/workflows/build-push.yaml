@@ -49,7 +49,7 @@ jobs:
           fi
 
       # Seal APP_JWT_SECRET and ADMIN_PASSWORD into a SealedSecret manifest.
-      # Branch determines namespace: main Ã”Ã¥Ã† prod, dev Ã”Ã¥Ã† dev.
+      # Branch determines namespace: main Ãƒâ€ÃƒÂ¥Ãƒâ€  prod, dev Ãƒâ€ÃƒÂ¥Ãƒâ€  dev.
       # MASTER_CRT is the public cert matching the private key pre-seeded
       # into the cluster via Terraform (SEALED_SECRET_KEY).
       - name: Seal secrets
@@ -89,13 +89,14 @@ jobs:
           DB_PASS_ROOT: ${{ secrets.DB_PASS_ROOT }}
         run: |
           IMAGE_TAG=$(echo "$TAGS" | head -1 | cut -d: -f2)
+          DB_PASS_ROOT="${DB_PASS}-root"
           BRANCH="${GITHUB_REF_NAME}"
           echo "Deploying image tag: ${IMAGE_TAG} on branch: ${BRANCH}"
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Branch-scoped versioning: main Ã”Ã¥Ã† 0.1.x (prod), dev Ã”Ã¥Ã† 0.0.x (dev)
+          # Branch-scoped versioning: main Ãƒâ€ÃƒÂ¥Ãƒâ€  0.1.x (prod), dev Ãƒâ€ÃƒÂ¥Ãƒâ€  0.0.x (dev)
           # Independent minor versions per branch prevent merge conflicts entirely.
           if [ "$BRANCH" = "main" ]; then
             TARGET_MINOR=1

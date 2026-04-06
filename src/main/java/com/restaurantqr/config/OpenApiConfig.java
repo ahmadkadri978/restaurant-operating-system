@@ -41,6 +41,8 @@ public class OpenApiConfig {
                                 .name("Backend Team")
                                 .email("backend@restaurantqr.local")))
                 .servers(List.of(
+                        new Server().url("https://api.syrianorder.com").description("Production"),
+                        new Server().url("https://test.api.syrianorder.com").description("Dev / Staging"),
                         new Server().url("http://localhost:8080").description("Local")
                 ))
                 .components(new Components()

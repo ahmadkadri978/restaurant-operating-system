@@ -1,5 +1,5 @@
----
-# MySQL 8.4 StatefulSet — dedicated instance for backend-repo.
+﻿---
+# MySQL 8.4 StatefulSet â€” dedicated instance for backend-repo.
 # Only backend-repo pods can reach this database (NetworkPolicy below).
 # Credentials come from {{ .Release.Name }}-db-credentials Secret (Helm-generated, cluster-only).
 #
@@ -165,7 +165,8 @@ spec:
         - protocol: TCP
           port: 3306
 ---
-# Backup PVC: uses cluster default StorageClass (no storageClassName) for fresh-install safety.
+# Backup PVC: uses local-path-retain-immediate for Immediate binding (avoids Helm install timeout).
+# The default local-path class uses WaitForFirstConsumer which never binds for CronJob PVCs.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -174,6 +175,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
+  storageClassName: "local-path-retain-immediate"
   resources:
     requests:
       storage: 5Gi

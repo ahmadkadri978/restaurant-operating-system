@@ -1,6 +1,6 @@
-image:
+﻿image:
   repository: fadidasus/order-sys
-  tag: "backend-repo-8836736"
+  tag: "backend-repo-c925fe3"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
@@ -20,7 +20,7 @@ resources:
     cpu: 1000m
     memory: 896Mi
 
-# startupProbe replaces large initialDelaySeconds — allows up to 150s for JVM cold start
+# startupProbe replaces large initialDelaySeconds â€” allows up to 150s for JVM cold start
 startupProbe:
   httpGet:
     path: /actuator/health

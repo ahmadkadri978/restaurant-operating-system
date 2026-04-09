@@ -1,0 +1,52 @@
+# =============================================================================
+#  Dev environment overrides (merged on top of values.yaml).
+#  Selected by the HelmRelease via: valuesFiles: [values.yaml, values-dev.yaml]
+# =============================================================================
+
+ingress:
+  host: test.api.syrianorder.com
+  tlsSecret: backend-repo-dev-tls
+  clusterIssuer: letsencrypt-staging
+
+replicaCount: 1
+
+# Rolling update: kill-then-start (maxSurge=0) to avoid OOM on single-node
+deploymentStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 0
+    maxUnavailable: 1
+
+# Dev: same JVM envelope as prod — Spring Boot minimum heap is fixed
+resources:
+  requests:
+    cpu: 50m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 896Mi
+
+startupProbe:
+  httpGet:
+    path: /actuator/health
+    port: 8080
+  failureThreshold: 30
+  periodSeconds: 5
+
+readinessProbe:
+  httpGet:
+    path: /actuator/health
+    port: 8080
+  initialDelaySeconds: 0
+  periodSeconds: 10
+  failureThreshold: 5
+  timeoutSeconds: 3
+
+livenessProbe:
+  httpGet:
+    path: /actuator/health
+    port: 8080
+  initialDelaySeconds: 0
+  periodSeconds: 20
+  failureThreshold: 3
+  timeoutSeconds: 5

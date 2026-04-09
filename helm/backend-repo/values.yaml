@@ -50,8 +50,9 @@ service:
   port: 8080
 
 ingress:
+  # Overridden per environment in values-prod.yaml / values-dev.yaml
   host: api.syrianorder.com
-  tlsSecret: backend-repo-tls
+  tlsSecret: backend-repo-prod-tls
   clusterIssuer: letsencrypt-prod
 
 redis:

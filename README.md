@@ -221,7 +221,6 @@ Deployment manifests are provided as implementation artifacts; they do not by th
 - [Automated tests](src/test/)
 - [CI/CD workflow](.github/workflows/build-push.yaml)
 - [Helm configuration](helm/backend-repo/)
-- [Portfolio and application screenshots](https://github.com/ahmadkadri978/portfolio)
 
 ---
 

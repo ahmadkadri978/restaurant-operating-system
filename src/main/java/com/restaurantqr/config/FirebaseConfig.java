@@ -6,11 +6,13 @@ import com.google.firebase.FirebaseOptions;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 import java.io.IOException;
 
 @Slf4j
 @Configuration
+@ConditionalOnProperty(name = "app.firebase.enabled", havingValue = "true", matchIfMissing = true)
 public class FirebaseConfig {
     @PostConstruct
     public void init() {

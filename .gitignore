@@ -12,3 +12,7 @@ test-output*.txt
 !.env.example
 .vscode/
 .DS_Store
+
+# Firebase service account credentials
+firebase-service-account.json
+**/firebase-service-account.json

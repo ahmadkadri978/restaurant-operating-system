@@ -87,7 +87,7 @@ app:
     max-connections-per-restaurant: ${SSE_MAX_CONNECTIONS:500}
   # Admin user configuration
   admin:
-    password: ${ADMIN_PASSWORD:admin123}
+    password: ${ADMIN_PASSWORD}
 
 logging:
   level:

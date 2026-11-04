@@ -4,6 +4,8 @@
 # ============================================================
 
 app:
+  firebase:
+    enabled: false
   instance-id: test-instance
   redis:
     enabled: false

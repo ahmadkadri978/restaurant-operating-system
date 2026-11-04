@@ -24,7 +24,7 @@ jobs:
           java-version: '17'
           cache: maven
       - name: Run Maven tests
-        run: ./mvnw -B test -Dspring.profiles.active=test
+        run: bash ./mvnw -B test -Dspring.profiles.active=test
 
   build:
     needs: test

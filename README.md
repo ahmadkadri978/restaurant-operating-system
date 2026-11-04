@@ -18,7 +18,11 @@ Guests scan a table QR code and enter an active session code to browse the menu 
 
 Watch the restaurant workflow in action, including customer ordering, staff and kitchen interfaces, live order status updates, and table-session operations.
 
-**[▶ Watch the application demo](https://github.com/ahmadkadri978/restaurant-operating-system/blob/main/restaurant-operating-system-demo-muted-1.mp4)** (1 min 55 sec · muted · hosted on GitHub)
+<video src="https://raw.githubusercontent.com/ahmadkadri978/restaurant-operating-system/main/restaurant-operating-system-demo-muted-1.mp4" controls muted playsinline width="100%">
+  Your browser does not support embedded video. [Watch the demo on GitHub](https://github.com/ahmadkadri978/restaurant-operating-system/blob/main/restaurant-operating-system-demo-muted-1.mp4).
+</video>
+
+[Open the demo video](https://github.com/ahmadkadri978/restaurant-operating-system/blob/main/restaurant-operating-system-demo-muted-1.mp4) · 1 min 55 sec · no audio
 
 > The application's user interface is in Arabic. The demo illustrates the backend-driven workflows and real-time coordination across different restaurant roles.
 

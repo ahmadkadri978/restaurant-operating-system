@@ -6,34 +6,27 @@ import com.google.firebase.FirebaseOptions;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.io.ClassPathResource;
 
-import java.io.InputStream;
+import java.io.IOException;
 
 @Slf4j
 @Configuration
 public class FirebaseConfig {
-
     @PostConstruct
     public void init() {
+        if (!FirebaseApp.getApps().isEmpty()) {
+            log.info("Firebase already initialized.");
+            return;
+        }
         try {
-            if (!FirebaseApp.getApps().isEmpty()) {
-                log.info("Firebase already initialized.");
-                return;
-            }
-
-            ClassPathResource resource = new ClassPathResource("firebase-service-account.json");
-            try (InputStream is = resource.getInputStream()) {
-                FirebaseOptions options = FirebaseOptions.builder()
-                        .setCredentials(GoogleCredentials.fromStream(is))
-                        .build();
-
-                FirebaseApp.initializeApp(options);
-                log.info("Firebase initialized successfully.");
-            }
-        } catch (Exception e) {
-            log.error("Failed to initialize Firebase", e);
-            throw new IllegalStateException("Firebase init failed", e);
+            GoogleCredentials credentials = GoogleCredentials.getApplicationDefault();
+            FirebaseApp.initializeApp(FirebaseOptions.builder()
+                    .setCredentials(credentials)
+                    .build());
+            log.info("Firebase initialized using Application Default Credentials.");
+        } catch (IOException e) {
+            log.error("Firebase credentials unavailable. Configure workload identity or GOOGLE_APPLICATION_CREDENTIALS.");
+            throw new IllegalStateException("Firebase credentials unavailable", e);
         }
     }
 }

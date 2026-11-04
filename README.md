@@ -24,7 +24,7 @@ Watch the restaurant workflow in action, including customer ordering, staff and 
 
 [Open the demo video](https://github.com/ahmadkadri978/restaurant-operating-system/blob/main/restaurant-operating-system-demo-muted-1.mp4) · 1 min 55 sec · no audio
 
-> The application's user interface is in Arabic. The demo illustrates the backend-driven workflows and real-time coordination across different restaurant roles.
+> The application's user interface is in Arabic, while the demo includes English on-screen explanations to guide viewers through the workflow. It demonstrates backend-driven operations and real-time coordination across different restaurant roles.
 
 ## What the system does
 

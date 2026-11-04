@@ -1,3 +1,14 @@
 target/
 .idea/
 *.iml
+
+# Generated build and test console output
+*.log
+test-output*.txt
+
+# Local environment and editor files
+.env
+.env.*
+!.env.example
+.vscode/
+.DS_Store

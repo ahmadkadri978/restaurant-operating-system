@@ -78,7 +78,6 @@ spec:
                 secretKeyRef:
                   name: {{ .Release.Name }}-secrets
                   key: ADMIN_PASSWORD
-                  optional: true
             # Redis for SSE pub/sub fan-out
             - name: REDIS_ENABLED
               value: "true"

@@ -14,15 +14,13 @@ Guests scan a table QR code and enter an active session code to browse the menu 
 
 > **Portfolio scope:** This repository contains the **Spring Boot backend**. The HTML/JavaScript frontend is maintained separately. See the [system overview](SYSTEM_OVERVIEW.md) for additional implementation notes.
 
-## Application screenshots
+## Application Demo
 
-These are screenshots of the actual application, hosted in the [portfolio repository](https://github.com/ahmadkadri978/portfolio).
+Watch the restaurant workflow in action, including customer ordering, staff and kitchen interfaces, live order status updates, and table-session operations.
 
-| Owner analytics | Customer order tracking |
-|:---:|:---:|
-| ![Restaurant owner statistics dashboard](https://raw.githubusercontent.com/ahmadkadri978/portfolio/main/restaurant-statistics-owner-dashboard.jpg) | ![Customer order status screen](https://raw.githubusercontent.com/ahmadkadri978/portfolio/main/restaurant-order-status.jpg) |
-| **Staff dashboard** | **Super admin dashboard** |
-| ![Restaurant staff dashboard](https://raw.githubusercontent.com/ahmadkadri978/portfolio/main/restaurant-staff-dashboard.jpg) | ![Restaurant super admin dashboard](https://raw.githubusercontent.com/ahmadkadri978/portfolio/main/restaurant-super-admin-dashboard.jpg) |
+**[▶ Watch the application demo](https://github.com/ahmadkadri978/restaurant-operating-system/blob/main/restaurant-operating-system-demo-muted-1.mp4)** (1 min 55 sec · muted · hosted on GitHub)
+
+> The application's user interface is in Arabic. The demo illustrates the backend-driven workflows and real-time coordination across different restaurant roles.
 
 ## What the system does
 

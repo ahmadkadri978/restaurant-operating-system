@@ -3,4 +3,4 @@ name: backend-repo
 description: Syrian Order restaurant backend (REST API, orders, menu, FCM notifications)
 type: application
 version: 0.1.2
-appVersion: "backend-repo-c4f2936"
+appVersion: "backend-repo-27de9b9"

@@ -1,6 +1,6 @@
 ﻿image:
   repository: fadidasus/order-sys
-  tag: "backend-repo-c4f2936"
+  tag: "backend-repo-27de9b9"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
